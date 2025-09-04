@@ -6,8 +6,8 @@ using namespace KamataEngine;
 void GameScene::Initialize() {
 	// カメラ
 	camera_.Initialize();
-	camera_.translation_ = {0.0f, 12.0f, -22.0f};
-	camera_.rotation_.x = ToRadians(20.0f);
+	camera_.translation_ = {0.0f, 40.0f, 0.0f};
+	camera_.rotation_.x = ToRadians(90.0f);
 	camera_.UpdateMatrix();
 
 	// モデル
@@ -43,10 +43,10 @@ void GameScene::Update() {
 	const float dt = 1.0f / 60.0f;
 
 	// パドル回転：A/D
-	if (Input::GetInstance()->PushKey(DIK_A)) {
+	if (Input::GetInstance()->PushKey(DIK_D)) {
 		paddle_.angle -= paddle_.angularSpeed * dt;
 	}
-	if (Input::GetInstance()->PushKey(DIK_D)) {
+	if (Input::GetInstance()->PushKey(DIK_A)) {
 		paddle_.angle += paddle_.angularSpeed * dt;
 	}
 	paddle_.angle = WrapAngle(paddle_.angle);
