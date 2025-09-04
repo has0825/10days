@@ -16,10 +16,11 @@ public:
 private:
 	// ============ リソース ============
 	Camera camera_;
-	Model* modelBlock_ = nullptr; // リング/パドル/コア用（薄板）
-	Model* modelShot_ = nullptr;  // 弾の見た目
+	Model* modelBlock_ = nullptr; // リング/パドル/コア用
+	Model* modelShot_ = nullptr;  // 弾
+	Model* modelEnemy_ = nullptr; // 敵
 
-	// ============ 円環・パドルのパラメータ ============
+	// ============ 円環・パドル ============
 	static inline const int kRingSegments = 72;
 	static inline const int kPaddleSegments = 24;
 	Vector3 ringC_{0.0f, 0.0f, 0.0f};
@@ -27,7 +28,6 @@ private:
 	float ringThickness_ = 0.8f;
 	float coreR_ = 2.0f;
 
-	// WT は unique_ptr で保持（エンジン型を値で持たない）
 	std::vector<std::unique_ptr<WorldTransform>> ringSegWT_;
 	std::vector<std::unique_ptr<WorldTransform>> paddleSegWT_;
 	std::unique_ptr<WorldTransform> coreWT_;
@@ -43,7 +43,7 @@ private:
 		bool active = false;
 		Vector3 pos{};
 		Vector3 vel{};
-		std::unique_ptr<WorldTransform> wt; // ムーブ可能に
+		std::unique_ptr<WorldTransform> wt;
 		Shot() = default;
 		Shot(const Shot&) = delete;
 		Shot& operator=(const Shot&) = delete;
@@ -52,10 +52,29 @@ private:
 	};
 	std::vector<Shot> shots_;
 
+	// ============ 敵 ============
+	struct Enemy {
+		bool active = false;
+		Vector3 pos{};
+		Vector3 vel{};
+		std::unique_ptr<WorldTransform> wt;
+		Enemy() = default;
+		Enemy(const Enemy&) = delete;
+		Enemy& operator=(const Enemy&) = delete;
+		Enemy(Enemy&&) noexcept = default;
+		Enemy& operator=(Enemy&&) noexcept = default;
+	};
+	std::vector<Enemy> enemies_;
+
 	// ============ 内部処理 ============
 	void UpdateRingAndPaddle(float dt);
 	void SpawnShot();
 	void UpdateShots(float dt);
 	void DrawRingAndPaddle();
 	void DrawShots();
+
+	// 敵
+	void SpawnEnemy();
+	void UpdateEnemies(float dt);
+	void DrawEnemies();
 };

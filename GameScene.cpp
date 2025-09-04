@@ -1,7 +1,11 @@
 #include "GameScene.h"
 #include <cmath>
+#include <cstdlib>
 
 using namespace KamataEngine;
+
+// ランダム補助
+static float RandomRange(float min, float max) { return min + (max - min) * (float(rand()) / float(RAND_MAX)); }
 
 void GameScene::Initialize() {
 	// カメラ
@@ -13,8 +17,9 @@ void GameScene::Initialize() {
 	// モデル
 	modelBlock_ = Model::CreateFromOBJ("block");
 	modelShot_ = Model::CreateFromOBJ("attack_effect");
+	modelEnemy_ = Model::CreateFromOBJ("enemy");
 
-	// 円環 WT（unique_ptr で生成）
+	// 円環 WT
 	ringSegWT_.reserve(kRingSegments);
 	for (int i = 0; i < kRingSegments; ++i) {
 		auto wt = std::make_unique<WorldTransform>();
@@ -32,17 +37,18 @@ void GameScene::Initialize() {
 	coreWT_ = std::make_unique<WorldTransform>();
 	coreWT_->Initialize();
 
-	// 弾は事前確保
+	// コンテナ確保
 	shots_.reserve(128);
+	enemies_.reserve(128);
 
-	// 一度初期配置を計算
+	// 初期配置計算
 	UpdateRingAndPaddle(0.0f);
 }
 
 void GameScene::Update() {
 	const float dt = 1.0f / 60.0f;
 
-	// パドル回転：A/D
+	// パドル回転
 	if (Input::GetInstance()->PushKey(DIK_D)) {
 		paddle_.angle -= paddle_.angularSpeed * dt;
 	}
@@ -51,32 +57,41 @@ void GameScene::Update() {
 	}
 	paddle_.angle = WrapAngle(paddle_.angle);
 
-	// 発射：SPACE
+	// 発射
+	// Update 内
 	if (Input::GetInstance()->TriggerKey(DIK_SPACE)) {
 		SpawnShot();
+	}
+
+	// 敵の定期出現（1秒ごと）
+	static float enemyTimer = 0.0f;
+	enemyTimer += dt;
+	if (enemyTimer >= 1.0f) {
+		enemyTimer = 0.0f;
+		SpawnEnemy();
 	}
 
 	// 更新
 	UpdateRingAndPaddle(dt);
 	UpdateShots(dt);
+	UpdateEnemies(dt);
 
 	camera_.UpdateMatrix();
 }
 
 void GameScene::Draw() {
 	DirectXCommon* dxCommon = DirectXCommon::GetInstance();
-
 	Model::PreDraw(dxCommon->GetCommandList());
 
 	DrawRingAndPaddle();
 	DrawShots();
+	DrawEnemies();
 
 	Model::PostDraw();
 }
 
-// ==================== 円環：更新 ====================
+// ==================== 円環 ====================
 void GameScene::UpdateRingAndPaddle(float /*dt*/) {
-	// リング
 	const int N = kRingSegments;
 	for (int i = 0; i < N; ++i) {
 		float a = -PI + (2.0f * PI) * (i / static_cast<float>(N));
@@ -91,7 +106,6 @@ void GameScene::UpdateRingAndPaddle(float /*dt*/) {
 		WorldTransformUpdate(wt);
 	}
 
-	// パドル
 	const int P = kPaddleSegments;
 	for (int i = 0; i < P; ++i) {
 		float a = paddle_.angle - paddle_.halfWidth + (2.0f * paddle_.halfWidth) * (i / static_cast<float>(P - 1));
@@ -106,7 +120,6 @@ void GameScene::UpdateRingAndPaddle(float /*dt*/) {
 		WorldTransformUpdate(wt);
 	}
 
-	// コア
 	auto& cwt = *coreWT_;
 	cwt.translation_ = ringC_;
 	cwt.rotation_ = {0, 0, 0};
@@ -114,21 +127,18 @@ void GameScene::UpdateRingAndPaddle(float /*dt*/) {
 	WorldTransformUpdate(cwt);
 }
 
-// ==================== 弾：生成 ====================
+// ==================== 弾 ====================
 void GameScene::SpawnShot() {
 	shots_.emplace_back();
 	Shot& s = shots_.back();
 	s.active = true;
 
-	// 発射位置（リング幅中央）
 	float a = paddle_.angle;
 	float inner = ringR_ - ringThickness_ * 0.5f;
 	float outer = ringR_ + ringThickness_ * 0.5f;
 	float mid = (inner + outer) * 0.5f;
 
 	s.pos = {ringC_.x + mid * std::cos(a), 0.0f, ringC_.z + mid * std::sin(a)};
-
-	// 方向は内側
 	Vector3 dir = {ringC_.x - s.pos.x, 0.0f, ringC_.z - s.pos.z};
 	float len = std::sqrt(dir.x * dir.x + dir.z * dir.z);
 	if (len > 1e-5f) {
@@ -136,58 +146,155 @@ void GameScene::SpawnShot() {
 		dir.z /= len;
 	}
 
-	float speed = 10.0f; // m/s（簡易に 1/60 を乗算）
+	float speed = 10.0f;
 	s.vel = {dir.x * speed * (1.0f / 60.0f), 0.0f, dir.z * speed * (1.0f / 60.0f)};
 
 	s.wt = std::make_unique<WorldTransform>();
 	s.wt->Initialize();
 	s.wt->translation_ = s.pos;
-	s.wt->rotation_ = {0, 0, 0};
 	s.wt->scale_ = {0.2f, 0.2f, 0.2f};
 	WorldTransformUpdate(*s.wt);
 }
 
-// ==================== 弾：更新 ====================
 void GameScene::UpdateShots(float /*dt*/) {
 	for (auto& s : shots_) {
 		if (!s.active)
 			continue;
-
 		s.pos += s.vel;
 
-		// コア内に入ったら消滅
 		float dx = s.pos.x - ringC_.x;
 		float dz = s.pos.z - ringC_.z;
 		if ((dx * dx + dz * dz) <= coreR_ * coreR_) {
 			s.active = false;
 			continue;
 		}
-
 		if (s.wt) {
 			s.wt->translation_ = s.pos;
-			s.wt->rotation_ = {0, 0, 0};
-			s.wt->scale_ = {0.2f, 0.2f, 0.2f};
 			WorldTransformUpdate(*s.wt);
 		}
 	}
-
-	// 非アクティブ弾の間引き
 	if (!shots_.empty()) {
 		shots_.erase(std::remove_if(shots_.begin(), shots_.end(), [](const Shot& s) { return !s.active; }), shots_.end());
 	}
 }
 
+// ==================== 敵 ====================
+void GameScene::SpawnEnemy() {
+	enemies_.emplace_back();
+	Enemy& e = enemies_.back();
+	e.active = true;
+
+	float angle = RandomRange(0.0f, 2.0f * PI);
+	float radius = ringR_ * 2.5f;
+	e.pos = {ringC_.x + radius * std::cos(angle), 0.0f, ringC_.z + radius * std::sin(angle)};
+
+	Vector3 dir = {ringC_.x - e.pos.x, 0.0f, ringC_.z - e.pos.z};
+	float len = std::sqrt(dir.x * dir.x + dir.z * dir.z);
+	if (len > 1e-5f) {
+		dir.x /= len;
+		dir.z /= len;
+	}
+	float speed = 2.0f;
+	e.vel = {dir.x * speed * (1.0f / 60.0f), 0.0f, dir.z * speed * (1.0f / 60.0f)};
+
+	e.wt = std::make_unique<WorldTransform>();
+	e.wt->Initialize();
+	e.wt->translation_ = e.pos;
+	e.wt->scale_ = {0.5f, 0.5f, 0.5f};
+	WorldTransformUpdate(*e.wt);
+}
+
+void GameScene::UpdateEnemies(float /*dt*/) {
+	for (auto& e : enemies_) {
+		if (!e.active)
+			continue;
+		e.pos += e.vel;
+
+		// ===== コアに到達したら消滅 =====
+		float dx = e.pos.x - ringC_.x;
+		float dz = e.pos.z - ringC_.z;
+		if ((dx * dx + dz * dz) <= coreR_ * coreR_) {
+			e.active = false;
+			continue;
+		}
+
+		// ===== 弾との衝突判定 =====
+		for (auto& s : shots_) {
+			if (!s.active)
+				continue;
+
+			float sx = s.pos.x - e.pos.x;
+			float sz = s.pos.z - e.pos.z;
+			float dist2 = sx * sx + sz * sz;
+
+			// 半径の和で判定（弾0.2, 敵0.5くらい）
+			float r = 0.2f + 0.5f;
+			if (dist2 <= r * r) {
+				s.active = false;
+				e.active = false;
+				break; // この敵は消えたので弾チェック終了
+			}
+		}
+
+		// ===== パドルとの衝突判定（今のまま） =====
+		if (e.active) {
+			float enemyAngle = std::atan2(e.pos.z - ringC_.z, e.pos.x - ringC_.x);
+
+			auto NormalizeAngle = [](float a) {
+				while (a > PI)
+					a -= 2 * PI;
+				while (a < -PI)
+					a += 2 * PI;
+				return a;
+			};
+			float startAngle = NormalizeAngle(paddle_.angle - paddle_.halfWidth);
+			float endAngle = NormalizeAngle(paddle_.angle + paddle_.halfWidth);
+			enemyAngle = NormalizeAngle(enemyAngle);
+
+			bool inAngle = false;
+			if (startAngle <= endAngle) {
+				inAngle = (enemyAngle >= startAngle && enemyAngle <= endAngle);
+			} else {
+				inAngle = (enemyAngle >= startAngle || enemyAngle <= endAngle);
+			}
+
+			float dist = std::sqrt(dx * dx + dz * dz);
+			float inner = ringR_ - ringThickness_ * 0.5f;
+			float outer = ringR_ + ringThickness_ * 0.5f;
+
+			if (inAngle && dist >= inner && dist <= outer) {
+				e.active = false; // 当たったので敵を消す
+			}
+		}
+
+		// ===== Transform更新 =====
+		if (e.active && e.wt) {
+			e.wt->translation_ = e.pos;
+			WorldTransformUpdate(*e.wt);
+		}
+	}
+
+	// inactive の敵を削除
+	if (!enemies_.empty()) {
+		enemies_.erase(std::remove_if(enemies_.begin(), enemies_.end(), [](const Enemy& e) { return !e.active; }), enemies_.end());
+	}
+
+	// inactive の弾も削除
+	if (!shots_.empty()) {
+		shots_.erase(std::remove_if(shots_.begin(), shots_.end(), [](const Shot& s) { return !s.active; }), shots_.end());
+	}
+}
+
+
+
 // ==================== 描画 ====================
 void GameScene::DrawRingAndPaddle() {
 	if (!modelBlock_)
 		return;
-
-	for (auto& up : ringSegWT_) {
+	for (auto& up : ringSegWT_)
 		modelBlock_->Draw(*up, camera_);
-	}
-	for (auto& up : paddleSegWT_) {
+	for (auto& up : paddleSegWT_)
 		modelBlock_->Draw(*up, camera_);
-	}
 	modelBlock_->Draw(*coreWT_, camera_);
 }
 
@@ -198,5 +305,15 @@ void GameScene::DrawShots() {
 		if (!s.active || !s.wt)
 			continue;
 		modelShot_->Draw(*s.wt, camera_);
+	}
+}
+
+void GameScene::DrawEnemies() {
+	if (!modelEnemy_)
+		return;
+	for (auto& e : enemies_) {
+		if (!e.active || !e.wt)
+			continue;
+		modelEnemy_->Draw(*e.wt, camera_);
 	}
 }
