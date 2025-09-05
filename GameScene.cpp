@@ -43,6 +43,8 @@ void GameScene::Initialize() {
 
 	// 初期配置計算
 	UpdateRingAndPaddle(0.0f);
+
+	life_ = 3; // ライフ初期化
 }
 
 void GameScene::Update() {
@@ -215,6 +217,12 @@ void GameScene::UpdateEnemies(float /*dt*/) {
 		float dz = e.pos.z - ringC_.z;
 		if ((dx * dx + dz * dz) <= coreR_ * coreR_) {
 			e.active = false;
+			// ライフを減らす
+			life_--;
+			if (life_ <= 0) {
+				// GameOver 遷移は main.cpp 側で判定
+			}
+
 			continue;
 		}
 

@@ -13,6 +13,8 @@ public:
 	void Update();
 	void Draw();
 
+	 bool IsGameOver() const { return life_ <= 0; } // ★ 追加
+
 private:
 	// ============ リソース ============
 	Camera camera_;
@@ -27,6 +29,7 @@ private:
 	float ringR_ = 8.0f;
 	float ringThickness_ = 0.8f;
 	float coreR_ = 2.0f;
+	int life_ = 3; // ★ ライフ（初期値3）
 
 	std::vector<std::unique_ptr<WorldTransform>> ringSegWT_;
 	std::vector<std::unique_ptr<WorldTransform>> paddleSegWT_;

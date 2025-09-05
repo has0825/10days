@@ -1,5 +1,6 @@
 #include "GameScene.h"
 #include "Title.h"
+#include "GameOver.h" // ★ 追加
 #include <KamataEngine.h>
 #include <Windows.h>
 #include <memory>
@@ -9,6 +10,7 @@ using namespace KamataEngine;
 enum class Scene {
 	Title,
 	Game,
+	GameOver, // ★ 追加
 };
 
 // Windowsアプリでのエントリーポイント(main関数)
@@ -26,44 +28,56 @@ int WINAPI WinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ LPSTR, _In_ int) {
 	titleScene->Initialize();
 
 	std::unique_ptr<GameScene> gameScene = nullptr;
+	std::unique_ptr<GameOverScene> gameOverScene = nullptr; // ★ ここ追加
 
 	// メインループ
 	while (true) {
-		// エンジン更新
-		if (KamataEngine::Update()) {
+		if (KamataEngine::Update())
 			break;
-		}
 
-		// ====== シーンごとの更新 ======
 		switch (scene) {
 		case Scene::Title:
 			titleScene->Update();
 			if (titleScene->IsFinished()) {
-				titleScene.reset(); // delete不要で自動解放
-
+				titleScene.reset();
 				gameScene = std::make_unique<GameScene>();
 				gameScene->Initialize();
 				scene = Scene::Game;
 			}
 			break;
-
 		case Scene::Game:
 			gameScene->Update();
+			if (gameScene->IsGameOver()) {
+				gameScene.reset();
+				gameOverScene = std::make_unique<GameOverScene>();
+				gameOverScene->Initialize();
+				scene = Scene::GameOver;
+			}
+			break;
+		case Scene::GameOver:
+			gameOverScene->Update();
+			if (gameOverScene->IsFinished()) {
+				gameOverScene.reset();
+				titleScene = std::make_unique<TitleScene>();
+				titleScene->Initialize();
+				scene = Scene::Title;
+			}
 			break;
 		}
 
-		// ====== 描画 ======
 		dxCommon->PreDraw();
 		switch (scene) {
 		case Scene::Title:
-			if (titleScene) {
+			if (titleScene)
 				titleScene->Draw();
-			}
 			break;
 		case Scene::Game:
-			if (gameScene) {
+			if (gameScene)
 				gameScene->Draw();
-			}
+			break;
+		case Scene::GameOver:
+			if (gameOverScene)
+				gameOverScene->Draw();
 			break;
 		}
 		dxCommon->PostDraw();
