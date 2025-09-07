@@ -1,6 +1,9 @@
 #include "GameScene.h"
+#include <algorithm>
 #include <cmath>
 #include <cstdlib>
+#include <numbers>
+#include <string>
 
 using namespace KamataEngine;
 
@@ -18,6 +21,9 @@ void GameScene::Initialize() {
 	modelBlock_ = Model::CreateFromOBJ("block");
 	modelShot_ = Model::CreateFromOBJ("attack_effect");
 	modelEnemy_ = Model::CreateFromOBJ("enemy");
+
+	// HUD 初期化（プロジェクトに HUD.png を入れておくこと）
+	hud_.Initialize("Font.png");
 
 	// 円環 WT
 	ringSegWT_.reserve(kRingSegments);
@@ -44,11 +50,23 @@ void GameScene::Initialize() {
 	// 初期配置計算
 	UpdateRingAndPaddle(0.0f);
 
-	life_ = 3; // ライフ初期化
+
+	score_ = 0;
+	skill_ = 0;
+	timer_ = 0;
+	life_ = 3;
+	timerAcc_ = 0.0f;
 }
 
 void GameScene::Update() {
 	const float dt = 1.0f / 60.0f;
+
+	// タイマー (秒)
+	timerAcc_ += dt;
+	if (timerAcc_ >= 1.0f) {
+		timerAcc_ -= 1.0f;
+		timer_++;
+	}
 
 	// パドル回転
 	if (Input::GetInstance()->PushKey(DIK_D)) {
@@ -60,7 +78,6 @@ void GameScene::Update() {
 	paddle_.angle = WrapAngle(paddle_.angle);
 
 	// 発射
-	// Update 内
 	if (Input::GetInstance()->TriggerKey(DIK_SPACE)) {
 		SpawnShot();
 	}
@@ -82,16 +99,23 @@ void GameScene::Update() {
 }
 
 void GameScene::Draw() {
+	// モデル描画
 	DirectXCommon* dxCommon = DirectXCommon::GetInstance();
 	Model::PreDraw(dxCommon->GetCommandList());
-
 	DrawRingAndPaddle();
 	DrawShots();
 	DrawEnemies();
-
 	Model::PostDraw();
-}
 
+
+	// HUD描画
+	Sprite::PreDraw(dxCommon->GetCommandList());
+	hud_.DrawTimer(timer_);
+	hud_.DrawScore(score_);
+	hud_.DrawLife(life_);
+	hud_.DrawSkill(skill_);
+	Sprite::PostDraw();
+}
 // ==================== 円環 ====================
 void GameScene::UpdateRingAndPaddle(float /*dt*/) {
 	const int N = kRingSegments;
@@ -222,7 +246,6 @@ void GameScene::UpdateEnemies(float /*dt*/) {
 			if (life_ <= 0) {
 				// GameOver 遷移は main.cpp 側で判定
 			}
-
 			continue;
 		}
 
@@ -240,6 +263,10 @@ void GameScene::UpdateEnemies(float /*dt*/) {
 			if (dist2 <= r * r) {
 				s.active = false;
 				e.active = false;
+
+				// ***** スコア加算（弾で倒した） *****
+				score_ += 100;
+
 				break; // この敵は消えたので弾チェック終了
 			}
 		}
@@ -272,6 +299,9 @@ void GameScene::UpdateEnemies(float /*dt*/) {
 
 			if (inAngle && dist >= inner && dist <= outer) {
 				e.active = false; // 当たったので敵を消す
+
+				// ***** スコア加算（パドルで倒した） *****
+				score_ += 50;
 			}
 		}
 
@@ -292,8 +322,6 @@ void GameScene::UpdateEnemies(float /*dt*/) {
 		shots_.erase(std::remove_if(shots_.begin(), shots_.end(), [](const Shot& s) { return !s.active; }), shots_.end());
 	}
 }
-
-
 
 // ==================== 描画 ====================
 void GameScene::DrawRingAndPaddle() {

@@ -1,4 +1,5 @@
 #pragma once
+#include "Hud.h"
 #include "Math.h"
 #include <KamataEngine.h>
 #include <algorithm>
@@ -13,7 +14,7 @@ public:
 	void Update();
 	void Draw();
 
-	 bool IsGameOver() const { return life_ <= 0; } // ★ 追加
+	bool IsGameOver() const { return life_ <= 0; }
 
 private:
 	// ============ リソース ============
@@ -22,6 +23,12 @@ private:
 	Model* modelShot_ = nullptr;  // 弾
 	Model* modelEnemy_ = nullptr; // 敵
 
+  Hud hud_;
+	int score_ = 0;
+	int skill_ = 0;
+	int timer_ = 0;
+	float timerAcc_ = 0.0f; // 秒数加算用
+
 	// ============ 円環・パドル ============
 	static inline const int kRingSegments = 72;
 	static inline const int kPaddleSegments = 24;
@@ -29,7 +36,7 @@ private:
 	float ringR_ = 8.0f;
 	float ringThickness_ = 0.8f;
 	float coreR_ = 2.0f;
-	int life_ = 3; // ★ ライフ（初期値3）
+	int life_ = 3;
 
 	std::vector<std::unique_ptr<WorldTransform>> ringSegWT_;
 	std::vector<std::unique_ptr<WorldTransform>> paddleSegWT_;
