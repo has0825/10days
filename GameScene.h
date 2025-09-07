@@ -1,6 +1,7 @@
 #pragma once
 #include "Hud.h"
 #include "Math.h"
+#include "Skydome.h"
 #include <KamataEngine.h>
 #include <algorithm>
 #include <memory>
@@ -87,4 +88,9 @@ private:
 	void SpawnEnemy();
 	void UpdateEnemies(float dt);
 	void DrawEnemies();
+
+	// 天球
+	Model* modelSkydome_ = nullptr;
+	Skydome* skydome_ = nullptr;
+	WorldTransform worldTransformSkydome_;
 };

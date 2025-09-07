@@ -21,6 +21,7 @@ void GameScene::Initialize() {
 	modelBlock_ = Model::CreateFromOBJ("block");
 	modelShot_ = Model::CreateFromOBJ("attack_effect");
 	modelEnemy_ = Model::CreateFromOBJ("enemy");
+	modelSkydome_ = Model::CreateFromOBJ("universedome");
 
 	// HUD 初期化（プロジェクトに HUD.png を入れておくこと）
 	hud_.Initialize("Font.png");
@@ -50,16 +51,23 @@ void GameScene::Initialize() {
 	// 初期配置計算
 	UpdateRingAndPaddle(0.0f);
 
-
 	score_ = 0;
 	skill_ = 0;
 	timer_ = 0;
 	life_ = 3;
 	timerAcc_ = 0.0f;
+
+	// 天球
+	//  skydome生成
+	skydome_ = new Skydome();
+	// 初期化
+	skydome_->Initialize(modelSkydome_, &camera_);
 }
 
 void GameScene::Update() {
 	const float dt = 1.0f / 60.0f;
+
+	skydome_->Update();
 
 	// タイマー (秒)
 	timerAcc_ += dt;
@@ -102,11 +110,11 @@ void GameScene::Draw() {
 	// モデル描画
 	DirectXCommon* dxCommon = DirectXCommon::GetInstance();
 	Model::PreDraw(dxCommon->GetCommandList());
+	skydome_->Draw();
 	DrawRingAndPaddle();
 	DrawShots();
 	DrawEnemies();
 	Model::PostDraw();
-
 
 	// HUD描画
 	Sprite::PreDraw(dxCommon->GetCommandList());
