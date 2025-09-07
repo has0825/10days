@@ -186,7 +186,7 @@ void GameScene::SpawnShot() {
 	s.wt = std::make_unique<WorldTransform>();
 	s.wt->Initialize();
 	s.wt->translation_ = s.pos;
-	s.wt->scale_ = {0.2f, 0.2f, 0.2f};
+	s.wt->scale_ = {2.0f, 2.0f, 2.0f};
 	WorldTransformUpdate(*s.wt);
 }
 
@@ -198,7 +198,9 @@ void GameScene::UpdateShots(float /*dt*/) {
 
 		float dx = s.pos.x - ringC_.x;
 		float dz = s.pos.z - ringC_.z;
-		if ((dx * dx + dz * dz) <= coreR_ * coreR_) {
+		float coreHitR = coreR_ + kShotRadius; // ★ 弾の半径ぶんマージン
+		// コアに到達したら消滅
+		if ((dx * dx + dz * dz) <= coreHitR * coreHitR) {
 			s.active = false;
 			continue;
 		}
@@ -267,7 +269,7 @@ void GameScene::UpdateEnemies(float /*dt*/) {
 			float dist2 = sx * sx + sz * sz;
 
 			// 半径の和で判定（弾0.2, 敵0.5くらい）
-			float r = 0.2f + 0.5f;
+			float r = kShotRadius + kEnemyRadius;
 			if (dist2 <= r * r) {
 				s.active = false;
 				e.active = false;

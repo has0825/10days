@@ -93,4 +93,9 @@ private:
 	Model* modelSkydome_ = nullptr;
 	Skydome* skydome_ = nullptr;
 	WorldTransform worldTransformSkydome_;
+
+	// 弾＆敵の半径・見た目
+	static inline const float kShotScale = 0.6f;   // モデル表示の大きさ
+	static inline const float kShotRadius = 0.6f;  // 当たり判定（半径）
+	static inline const float kEnemyRadius = 0.5f; // 既存の敵半径（必要なら調整OK）
 };
