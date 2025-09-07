@@ -112,6 +112,7 @@
     <ClCompile Include="Hud.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="Math.cpp" />
+    <ClCompile Include="Skydome.cpp" />
     <ClCompile Include="Title.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -195,6 +196,7 @@
     <ClInclude Include="GameScene.h" />
     <ClInclude Include="Hud.h" />
     <ClInclude Include="Math.h" />
+    <ClInclude Include="Skydome.h" />
     <ClInclude Include="Title.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

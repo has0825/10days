@@ -5,6 +5,9 @@
 #include <algorithm>
 #include <memory>
 #include <vector>
+#include "Skydome.h"
+
+
 
 using namespace KamataEngine;
 
@@ -87,4 +90,12 @@ private:
 	void SpawnEnemy();
 	void UpdateEnemies(float dt);
 	void DrawEnemies();
+
+
+	// 天球
+	Model *modelSkydome_ = nullptr;
+	Skydome *skydome_ = nullptr;
+	WorldTransform worldTransformSkydome_;
+
+
 };
