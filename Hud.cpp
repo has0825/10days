@@ -1,37 +1,52 @@
 #include "Hud.h"
 
 void Hud::Initialize(const std::string& textureFile) {
-	// テクスチャは一度だけロード
 	texHandle_ = TextureManager::Load(textureFile);
 
-	// ラベル用スプライトを一度だけ作成（※ここで Create して、以後は Draw するだけ）
-	sprTimer_ = Sprite::Create(texHandle_, posTimer_);
-	sprScore_ = Sprite::Create(texHandle_, posScore_);
-	sprLife_ = Sprite::Create(texHandle_, posLife_);
-	sprSkill_ = Sprite::Create(texHandle_, posSkill_);
+	// --- 画面サイズ想定値 ---
 
-	// フォントテクスチャを使ってる場合、UV を割って文字出ししたくなるけど、
-	// まずは安定確認のため絵（アイコン/プレースホルダ）だけ出す。
-	// 本格的な数値描画はこの後に拡張しましょう（数字用スプライト配列など）。
+
+	// 縮小率
+	const float scale = 1.2f;
+
+	// --- Timer (左上) ---
+	posTimer_ = {0.0f, 0.0f}; // 完全に端
+	sprTimer_ = Sprite::Create(texHandle_, posTimer_);
+	sprTimer_->SetTextureRect({0, 0}, {136, 53});
+	sprTimer_->SetSize({136 * scale, 53 * scale});
+
+	// --- life (左下) ---
+	posLife_ = {0, 650}; // 下端にピッタリ
+	sprLife_ = Sprite::Create(texHandle_, posLife_);
+	sprLife_->SetTextureRect({144, 0}, {84, 53});
+	sprLife_->SetSize({84 * scale, 53 * scale});
+
+	// --- Score (右上) ---
+	posScore_ = {900,0}; // 右端にピッタリ
+	sprScore_ = Sprite::Create(texHandle_, posScore_);
+	sprScore_->SetTextureRect({288, 0}, {136, 53});
+	sprScore_->SetSize({136 * scale, 53 * scale});
+
+	// --- Skill (右下) ---
+	posSkill_ = {1000,650}; // 右下端にピッタリ
+	sprSkill_ = Sprite::Create(texHandle_, posSkill_);
+	sprSkill_->SetTextureRect({432, 0}, {100, 53});
+	sprSkill_->SetSize({100 * scale, 53 * scale});
 }
 
 void Hud::DrawTimer(int /*seconds*/) {
-	if (sprTimer_) {
+	if (sprTimer_)
 		sprTimer_->Draw();
-	}
 }
 void Hud::DrawScore(int /*score*/) {
-	if (sprScore_) {
+	if (sprScore_)
 		sprScore_->Draw();
-	}
 }
 void Hud::DrawLife(int /*life*/) {
-	if (sprLife_) {
+	if (sprLife_)
 		sprLife_->Draw();
-	}
 }
 void Hud::DrawSkill(int /*skill*/) {
-	if (sprSkill_) {
+	if (sprSkill_)
 		sprSkill_->Draw();
-	}
 }

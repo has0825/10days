@@ -7,27 +7,28 @@ using namespace KamataEngine;
 
 class Hud {
 public:
-    // フォント or 任意のUIテクスチャ。一枚でOK（ここでは "Font.png" 前提）
-    void Initialize(const std::string& textureFile);
+	// UI用テクスチャの初期化
+	void Initialize(const std::string& textureFile);
 
-    // 数字はとりあえず描かず、ラベルのみ（安定確認用）
-    void DrawTimer(int /*seconds*/);
-    void DrawScore(int /*score*/);
-    void DrawLife(int /*life*/);
-    void DrawSkill(int /*skill*/);
+	// 数値は未描画、ラベルだけ
+	void DrawTimer(int /*seconds*/);
+	void DrawScore(int /*score*/);
+	void DrawLife(int /*life*/);
+	void DrawSkill(int /*skill*/);
 
 private:
-    uint32_t texHandle_ = 0u;
+	uint32_t texHandle_ = 0u;
 
-    // ラベル専用スプライト（必要に応じて増やす）
-    Sprite* sprTimer_ = nullptr;
-    Sprite* sprScore_ = nullptr;
-    Sprite* sprLife_  = nullptr;
-    Sprite* sprSkill_ = nullptr;
+	// ラベルスプライト
+	Sprite* sprTimer_ = nullptr; // 左上
+	Sprite* sprScore_ = nullptr; // 右上
+	Sprite* sprLife_ = nullptr;  // 左下
+	Sprite* sprSkill_ = nullptr; // 右下
 
-    // 配置
-    Vector2 posTimer_ = {  40.0f,  40.0f };
-    Vector2 posScore_ = {  40.0f,  80.0f };
-    Vector2 posLife_  = {  40.0f, 120.0f };
-    Vector2 posSkill_ = {  40.0f, 160.0f };
+	// 位置情報
+	Vector2 posTimer_ = {0.0f, 0.0f}; // 左上
+	Vector2 posScore_ = {0.0f, 0.0f}; // 右上
+	Vector2 posLife_ = {0.0f, 0.0f};  // 左下
+	Vector2 posSkill_ = {0.0f, 0.0f}; // 右下
+
 };
