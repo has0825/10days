@@ -13,6 +13,7 @@ void Skydome::Initialize(Model* model, Camera* camera) {
 	worldTransform_.Initialize();
 }
 
+
 /// <summary>
 /// 更新
 /// </summary>
