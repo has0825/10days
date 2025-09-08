@@ -32,7 +32,7 @@ void Hud::Initialize(const std::string& textureFile) {
 	sizeScore_ = {136.0f * s, static_cast<float>(kLabelH) * s};
 
 	// --- Skill (右下) ---
-	posSkill_ = {1000.0f, 650.0f};
+	posSkill_ = {900.0f, 650.0f};
 	sprSkill_ = Sprite::Create(texHandle_, posSkill_);
 	sprSkill_->SetTextureRect({432.0f, 0.0f}, {100.0f, static_cast<float>(kLabelH)});
 	sprSkill_->SetSize({100.0f * s, static_cast<float>(kLabelH) * s});
