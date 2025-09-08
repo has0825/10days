@@ -20,7 +20,7 @@ public:
 private:
 	// ============ リソース ============
 	Camera camera_;
-	Model* modelBlock_ = nullptr;      // 既存のブロック（未使用）
+	Model* modelBase_ = nullptr;      // 既存のブロック（未使用）
 	Model* modelBlockRing_ = nullptr; // リング
 	Model* modelBlockPaddle_ = nullptr; // パドル / コア用
 	Model* modelShot_ = nullptr;  // 弾（既存を流用）

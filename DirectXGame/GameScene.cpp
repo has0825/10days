@@ -19,11 +19,11 @@ void GameScene::Initialize() {
 	camera_.UpdateMatrix();
 
 	// モデル
-	modelBlock_ = Model::CreateFromOBJ("block"); // 既存のブロック（未使用）
+	modelBase_ = Model::CreateFromOBJ("base"); // 既存のブロック（未使用）
 	modelBlockRing_ = Model::CreateFromOBJ("circle");
 	modelBlockPaddle_ = Model::CreateFromOBJ("paddle");
 	modelShot_ = Model::CreateFromOBJ("attack_effect");
-	modelEnemy_ = Model::CreateFromOBJ("enemy");
+	modelEnemy_ = Model::CreateFromOBJ("meteorite");
 	modelSkydome_ = Model::CreateFromOBJ("universedome");
 
 	// HUD
@@ -215,7 +215,7 @@ void GameScene::UpdateRingAndPaddle(float /*dt*/) {
 	auto& cwt = *coreWT_;
 	cwt.translation_ = ringC_;
 	cwt.rotation_ = {0, 0, 0};
-	cwt.scale_ = {coreR_ * 2.0f, 0.1f, coreR_ * 2.0f};
+	cwt.scale_ = {coreR_ * 0.1f, 0.1f, coreR_ * 0.1f};
 	WorldTransformUpdate(cwt);
 }
 
@@ -449,7 +449,7 @@ void GameScene::DrawRingAndPaddle() {
 		for (auto& up : paddleSegWT2_)
 			modelBlockPaddle_->Draw(*up, camera_);
 	}
-	modelBlock_->Draw(*coreWT_, camera_);
+	modelBase_->Draw(*coreWT_, camera_);
 }
 
 void GameScene::DrawShots() {
