@@ -1,10 +1,8 @@
-
-
 #include "Hud.h"
 #include <string>
 
 void Hud::Initialize(const std::string& textureFile) {
-	texHandle = TextureManager::Load(textureFile);
+	texHandle_ = TextureManager::Load(textureFile);
 
 	// 表示スケール
 	const float s = kLabelScale;
@@ -118,11 +116,11 @@ void Hud::DrawScore(int score) {
 }
 
 void Hud::DrawLife(int /*life*/) {
-	if (sprLife)
-		sprLife->Draw();
+	if (sprLife_)
+		sprLife_->Draw();
 }
 
 void Hud::DrawSkill(int /*skill*/) {
-	if (sprSkill)
-		sprSkill->Draw();
+	if (sprSkill_)
+		sprSkill_->Draw();
 }
