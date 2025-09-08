@@ -19,14 +19,15 @@ void GameScene::Initialize() {
 	camera_.UpdateMatrix();
 
 	// モデル
-	modelBlock_ = Model::CreateFromOBJ("block");
+	modelBlock_ = Model::CreateFromOBJ("block"); // 既存のブロック（未使用）
+	modelBlockRing_ = Model::CreateFromOBJ("circle");
+	modelBlockPaddle_ = Model::CreateFromOBJ("paddle");
 	modelShot_ = Model::CreateFromOBJ("attack_effect");
 	modelEnemy_ = Model::CreateFromOBJ("enemy");
 	modelSkydome_ = Model::CreateFromOBJ("universedome");
 
 	// HUD
 	hud_.Initialize("Font.png");
-
 	// 円環 WT
 	ringSegWT_.reserve(kRingSegments);
 	for (int i = 0; i < kRingSegments; ++i) {
@@ -438,15 +439,15 @@ void GameScene::UpdateEnemies(float dt) {
 
 // ==================== 描画 ====================
 void GameScene::DrawRingAndPaddle() {
-	if (!modelBlock_)
+	if (!modelBlockRing_ && !modelBlockPaddle_)
 		return;
 	for (auto& up : ringSegWT_)
-		modelBlock_->Draw(*up, camera_);
+		modelBlockRing_->Draw(*up, camera_);
 	for (auto& up : paddleSegWT_)
-		modelBlock_->Draw(*up, camera_);
+		modelBlockPaddle_->Draw(*up, camera_);
 	if (doublePaddle_) {
 		for (auto& up : paddleSegWT2_)
-			modelBlock_->Draw(*up, camera_);
+			modelBlockPaddle_->Draw(*up, camera_);
 	}
 	modelBlock_->Draw(*coreWT_, camera_);
 }
