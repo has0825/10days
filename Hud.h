@@ -1,11 +1,10 @@
-
 #pragma once
 #include <KamataEngine.h>
 #include <array>
 #include <string>
 #include <vector>
 
-    using namespace KamataEngine;
+using namespace KamataEngine;
 
 class Hud {
 public:
@@ -25,10 +24,10 @@ private:
 	uint32_t texHandle_ = 0u;
 
 	// ラベルスプライト
-	Sprite* sprTimer = nullptr; // 左上
-	Sprite* sprScore = nullptr; // 右上
-	Sprite* sprLife = nullptr;  // 左下
-	Sprite* sprSkill = nullptr; // 右下
+	Sprite* sprTimer_ = nullptr; // 左上
+	Sprite* sprScore_ = nullptr; // 右上
+	Sprite* sprLife_ = nullptr;  // 左下
+	Sprite* sprSkill_ = nullptr; // 右下
 
 	// ラベルの描画起点（左上）
 	Vector2 posTimer_{0.0f, 0.0f};
