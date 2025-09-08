@@ -16,7 +16,7 @@ void TitleScene::Initialize() {
 	camera_.UpdateMatrix();
 
 	// タイトルのOBJ（titleFont フォルダ想定）
-	modelTitle_ = Model::CreateFromOBJ("titleFont", true);
+	modelTitle_ = Model::CreateFromOBJ("Title", true);
 
 	// ワールドトランスフォーム
 	titleWT_ = std::make_unique<WorldTransform>();

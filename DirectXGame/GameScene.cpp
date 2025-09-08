@@ -23,7 +23,7 @@ void GameScene::Initialize() {
 	modelBlockRing_ = Model::CreateFromOBJ("circle");
 	modelBlockPaddle_ = Model::CreateFromOBJ("paddle");
 	modelShot_ = Model::CreateFromOBJ("attack_effect");
-	modelEnemy_ = Model::CreateFromOBJ("enemy");
+	modelEnemy_ = Model::CreateFromOBJ("meteorite");
 	modelSkydome_ = Model::CreateFromOBJ("universedome");
 
 	// HUD
