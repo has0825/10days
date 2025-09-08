@@ -62,6 +62,8 @@ void GameScene::Initialize() {
 	skydome_ = new Skydome();
 	// 初期化
 	skydome_->Initialize(modelSkydome_, &camera_);
+
+
 }
 
 void GameScene::Update() {
