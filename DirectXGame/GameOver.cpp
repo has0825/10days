@@ -23,6 +23,9 @@ void GameOverScene::Initialize() {
 	wt_->Initialize();
 	wt_->translation_ = {0, 0, 0};
 	wt_->scale_ = {1, 1, 1};
+
+	// ★ HUD
+	hud_.Initialize("Font.png");
 	
 
 	// フェード
@@ -69,6 +72,11 @@ void GameOverScene::Draw() {
 		modelGameOver_->Draw(*wt_, camera_);
 	}
 	Model::PostDraw();
+
+	 // ★ リザルト（スコア表示）
+	Sprite::PreDraw(dxCommon->GetCommandList());
+	hud_.DrawScore(finalScore_); // ここで大きく出したければHUD側で倍率対応を
+	Sprite::PostDraw();
 
 	if (fade_)
 		fade_->Draw();

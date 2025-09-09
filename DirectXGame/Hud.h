@@ -4,8 +4,6 @@
 #include <string>
 #include <vector>
 
-using namespace KamataEngine;
-
 class Hud {
 public:
 	// UI用テクスチャの初期化
@@ -24,26 +22,26 @@ private:
 	uint32_t texHandle_ = 0u;
 
 	// ラベルスプライト
-	Sprite* sprTimer_ = nullptr; // 左上
-	Sprite* sprScore_ = nullptr; // 右上
-	Sprite* sprLife_ = nullptr;  // 左下
-	Sprite* sprSkill_ = nullptr; // 右下
+	KamataEngine::Sprite* sprTimer_ = nullptr; // 左上
+	KamataEngine::Sprite* sprScore_ = nullptr; // 右上
+	KamataEngine::Sprite* sprLife_ = nullptr;  // 左下
+	KamataEngine::Sprite* sprSkill_ = nullptr; // 右下
 
 	// ラベルの描画起点（左上）
-	Vector2 posTimer_{0.0f, 0.0f};
-	Vector2 posScore_{0.0f, 0.0f};
-	Vector2 posLife_{0.0f, 0.0f};
-	Vector2 posSkill_{0.0f, 0.0f};
+	KamataEngine::Vector2 posTimer_{0.0f, 0.0f};
+	KamataEngine::Vector2 posScore_{0.0f, 0.0f};
+	KamataEngine::Vector2 posLife_{0.0f, 0.0f};
+	KamataEngine::Vector2 posSkill_{0.0f, 0.0f};
 
 	// ラベル実サイズ（スケール後ピクセル）
-	Vector2 sizeTimer_{0.0f, 0.0f};
-	Vector2 sizeScore_{0.0f, 0.0f};
-	Vector2 sizeLife_{0.0f, 0.0f};
-	Vector2 sizeSkill_{0.0f, 0.0f};
+	KamataEngine::Vector2 sizeTimer_{0.0f, 0.0f};
+	KamataEngine::Vector2 sizeScore_{0.0f, 0.0f};
+	KamataEngine::Vector2 sizeLife_{0.0f, 0.0f};
+	KamataEngine::Vector2 sizeSkill_{0.0f, 0.0f};
 
 	// 数字スプライトのプール（必要数だけ確保・使い回し）
-	std::vector<Sprite*> digitsTimer_;
-	std::vector<Sprite*> digitsScore_;
+	std::vector<KamataEngine::Sprite*> digitsTimer_;
+	std::vector<KamataEngine::Sprite*> digitsScore_;
 
 	// ===== Font.png の割り付け =====
 	// 上段ラベルの元サイズ
@@ -62,7 +60,7 @@ private:
 	static inline const float kNumLeftMargin = 8.0f;
 
 	// 内部ヘルパ
-	void EnsureDigits(std::vector<Sprite*>& pool, size_t count);
+	void EnsureDigits(std::vector<KamataEngine::Sprite*>& pool, size_t count);
 	int GlyphIndexFromChar(char c) const; // 0-9, '.'->10, 'x'/'*'->11
-	void DrawString(const std::string& text, const Vector2& anchorLeftTop, std::vector<Sprite*>& pool);
+	void DrawString(const std::string& text, const KamataEngine::Vector2& anchorLeftTop, std::vector<KamataEngine::Sprite*>& pool);
 };

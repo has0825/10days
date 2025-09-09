@@ -45,15 +45,19 @@ int WINAPI WinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ LPSTR, _In_ int) {
 				scene = Scene::Game;
 			}
 			break;
+			// case Scene::Game: のゲームオーバー遷移部分を修正
 		case Scene::Game:
 			gameScene->Update();
 			if (gameScene->IsGameOver()) {
+				int finalScore = gameScene->GetScore(); // ★ スコア取得
 				gameScene.reset();
 				gameOverScene = std::make_unique<GameOverScene>();
 				gameOverScene->Initialize();
+				gameOverScene->SetScore(finalScore); // ★ 渡す
 				scene = Scene::GameOver;
 			}
 			break;
+
 		case Scene::GameOver:
 			gameOverScene->Update();
 			if (gameOverScene->IsFinished()) {

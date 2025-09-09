@@ -17,17 +17,19 @@ void GameScene::Initialize() {
 	camera_.translation_ = {0.0f, 40.0f, 0.0f};
 	camera_.rotation_.x = ToRadians(90.0f);
 	camera_.UpdateMatrix();
+	cameraPtr_ = &camera_; // ★ Skydome に渡す用
 
 	// モデル
-	modelBase_ = Model::CreateFromOBJ("base"); // 既存のブロック（未使用）
-	modelBlockRing_ = Model::CreateFromOBJ("circle");
-	modelBlockPaddle_ = Model::CreateFromOBJ("paddle");
-	modelShot_ = Model::CreateFromOBJ("PlayerBullet");
-	modelEnemy_ = Model::CreateFromOBJ("meteorite");
+	modelBase_ = Model::CreateFromOBJ("base");          // コア見た目
+	modelBlockRing_ = Model::CreateFromOBJ("circle");   // リング
+	modelBlockPaddle_ = Model::CreateFromOBJ("paddle"); // パドル
+	modelShot_ = Model::CreateFromOBJ("PlayerBullet");  // 弾
+	modelEnemy_ = Model::CreateFromOBJ("meteorite");    // 敵
 	modelSkydome_ = Model::CreateFromOBJ("universedome");
 
 	// HUD
 	hud_.Initialize("Font.png");
+
 	// 円環 WT
 	ringSegWT_.reserve(kRingSegments);
 	for (int i = 0; i < kRingSegments; ++i) {
@@ -43,7 +45,7 @@ void GameScene::Initialize() {
 		paddleSegWT_.push_back(std::move(wt));
 	}
 
-	// 2本目パドル用（必要になった時のみ使う）
+	// 2本目パドル用
 	paddleSegWT2_.reserve(kPaddleSegments);
 	for (int i = 0; i < kPaddleSegments; ++i) {
 		auto wt = std::make_unique<WorldTransform>();
@@ -71,14 +73,15 @@ void GameScene::Initialize() {
 
 	// 天球
 	skydome_ = new Skydome();
-	skydome_->Initialize(modelSkydome_, &camera_);
+	skydome_->Initialize(modelSkydome_, cameraPtr_);
 }
 
 void GameScene::Update() {
 	const float dt = 1.0f / 60.0f;
 
 	// 背景
-	skydome_->Update();
+	if (skydome_)
+		skydome_->Update();
 
 	// タイマー（秒）
 	timerAcc_ += dt;
@@ -104,24 +107,33 @@ void GameScene::Update() {
 	}
 	paddle_.angle = WrapAngle(paddle_.angle);
 
-	// 発射（※既存：SPACEの Trigger を維持。＋クールダウン）
+	// 発射（SPACE + クールダウン）
 	if (Input::GetInstance()->TriggerKey(DIK_SPACE) && shotCooldownNow_ <= 0.0f) {
 		SpawnShot();
-		// Lvごとのクールダウン短縮：-10%/Lv
 		float cdMul = 1.0f - 0.1f * float(std::clamp(paddleLevel_, 0, 3));
-		shotCooldownNow_ = baseShotCooldown_ * (std::max)(0.3f, cdMul); // 下限30%保険
+		shotCooldownNow_ = baseShotCooldown_ * (std::max)(0.3f, cdMul); // 下限30%
 	}
 
 	// 自動砲台（コア進化）
 	UpdateTurret(dt);
 
-	// 敵の定期出現（1秒ごと）
-	static float enemyTimer = 0.0f;
-	enemyTimer += dt;
-	if (enemyTimer >= 1.0f) {
-		enemyTimer = 0.0f;
+	// ---- 動的スポーン：時間＆スコアで毎秒出現数を増やす ----
+	float spawnRate = enemySpawnBaseRate_ + enemySpawnRateGrowthPerSec_ * static_cast<float>(timer_) // 経過秒
+	                  + enemySpawnRatePerScore_ * static_cast<float>(score_);                        // スコア
+
+	// 上限でクランプ
+	if (spawnRate > enemySpawnRateMax_)
+		spawnRate = enemySpawnRateMax_;
+	if (spawnRate < 0.0f)
+		spawnRate = 0.0f;
+
+	// 期待値を蓄積して、1.0 を超えるたびに 1体スポーン
+	enemySpawnAcc_ += spawnRate * dt;
+	while (enemySpawnAcc_ >= 1.0f) {
+		enemySpawnAcc_ -= 1.0f;
 		SpawnEnemy();
 	}
+	// ----
 
 	// 連続反射のタイムアウト
 	if (comboTimer_ > 0.0f) {
@@ -211,7 +223,7 @@ void GameScene::UpdateRingAndPaddle(float /*dt*/) {
 		}
 	}
 
-	// コア
+	// コア（見た目は小さめ／当たりは coreR_ で管理）
 	auto& cwt = *coreWT_;
 	cwt.translation_ = ringC_;
 	cwt.rotation_ = {0, 0, 0};
@@ -219,7 +231,7 @@ void GameScene::UpdateRingAndPaddle(float /*dt*/) {
 	WorldTransformUpdate(cwt);
 }
 
-// ==================== 弾（既存を尊重） ====================
+// ==================== 弾 ====================
 void GameScene::SpawnShot() {
 	shots_.emplace_back();
 	Shot& s = shots_.back();
@@ -244,8 +256,11 @@ void GameScene::SpawnShot() {
 	s.wt = std::make_unique<WorldTransform>();
 	s.wt->Initialize();
 	s.wt->translation_ = s.pos;
-	s.wt->scale_ = {kShotScale-1.0f, kShotScale-1.0f, kShotScale-1.0f}; // 既存サイズを尊重
+	s.wt->scale_ = {kShotVisualScale, kShotVisualScale, kShotVisualScale};
 	WorldTransformUpdate(*s.wt);
+
+	// 当たり半径は見た目から算出して保持
+	s.radius = kShotVisualScale * kShotCollisionFromVisual;
 }
 
 void GameScene::UpdateShots(float /*dt*/) {
@@ -256,11 +271,14 @@ void GameScene::UpdateShots(float /*dt*/) {
 
 		float dx = s.pos.x - ringC_.x;
 		float dz = s.pos.z - ringC_.z;
-		float coreHitR = coreR_ + kShotRadius; // 弾の半径を考慮
+
+		// コアとの当たり（弾半径を加味）
+		float coreHitR = coreR_ + s.radius;
 		if ((dx * dx + dz * dz) <= coreHitR * coreHitR) {
 			s.active = false;
 			continue;
 		}
+
 		if (s.wt) {
 			s.wt->translation_ = s.pos;
 			WorldTransformUpdate(*s.wt);
@@ -287,6 +305,7 @@ void GameScene::SpawnEnemy() {
 		dir.x /= len;
 		dir.z /= len;
 	}
+
 	float speed = 2.0f;
 	e.vel = {dir.x * speed * (1.0f / 60.0f), 0.0f, dir.z * speed * (1.0f / 60.0f)};
 
@@ -304,7 +323,6 @@ void GameScene::UpdateEnemies(float dt) {
 
 		// 吸引（進化）
 		if (attractActive_) {
-			// パドル角付近＆リング近傍にいる隕石へ弱い加速
 			auto applyAttract = [&](float baseAngle) {
 				float enemyA = std::atan2(e.pos.z - ringC_.z, e.pos.x - ringC_.x);
 				float relA = WrapAngle(enemyA - baseAngle);
@@ -312,7 +330,6 @@ void GameScene::UpdateEnemies(float dt) {
 				float dist = std::sqrt((e.pos.x - ringC_.x) * (e.pos.x - ringC_.x) + (e.pos.z - ringC_.z) * (e.pos.z - ringC_.z));
 				bool nearRing = (std::abs(dist - ringR_) <= attractBand_);
 				if (inAngle && nearRing) {
-					// リングの中央半径へ向けたわずかな加速
 					float radialDir = (dist > ringR_) ? -1.0f : +1.0f;
 					Vector3 toC = {ringC_.x - e.pos.x, 0.0f, ringC_.z - e.pos.z};
 					float L = std::sqrt(toC.x * toC.x + toC.z * toC.z);
@@ -335,21 +352,51 @@ void GameScene::UpdateEnemies(float dt) {
 		float dx = e.pos.x - ringC_.x;
 		float dz = e.pos.z - ringC_.z;
 		float dist2 = dx * dx + dz * dz;
+		float dist = std::sqrt(dist2);
 
-		// 減速帯（拠点強化）
+		// ---- リング帯の“毎秒ベース”減速（弱め・範囲を狭める） ----
+		float inner = ringR_ - ringThickness_ * 0.5f;
+		float outer = ringR_ + ringThickness_ * 0.5f;
+		float mid = (inner + outer) * 0.5f;
+		float halfW = (outer - inner) * ringSlowBandScale_;
+		if (dist >= mid - halfW && dist <= mid + halfW) {
+			float k = (1.0f - ringSlowStrengthPerSec_ * dt);
+			if (k < 0.0f)
+				k = 0.0f;
+			e.vel.x *= k;
+			e.vel.z *= k;
+		}
+
+		// ---- 拠点減速帯（毎秒ベース）＋最小侵入加速で詰まり解消 ----
 		if (slowActive_) {
 			float slowR = (coreR_ + slowBand_);
-			if (dist2 <= slowR * slowR && dist2 > coreR_ * coreR_) {
-				e.vel.x *= slowFactor_;
-				e.vel.z *= slowFactor_;
+			if (dist <= slowR && dist > coreR_) {
+				float k = (1.0f - slowStrengthPerSec_ * dt);
+				if (k < 0.0f)
+					k = 0.0f;
+				e.vel.x *= k;
+				e.vel.z *= k;
+
+				// 最低限コアへ近づく力を保証
+				Vector3 toC = {-dx, 0.0f, -dz};
+				float L = std::sqrt(toC.x * toC.x + toC.z * toC.z);
+				if (L > 1e-5f) {
+					toC.x /= L;
+					toC.z /= L;
+					float inwardSpeed = -(e.vel.x * toC.x + e.vel.z * toC.z); // コア向き成分を正に
+					if (inwardSpeed < minInwardSpeed_) {
+						e.vel.x += toC.x * minInwardAccel_ * dt;
+						e.vel.z += toC.z * minInwardAccel_ * dt;
+					}
+				}
 			}
 		}
 
-		// ===== コアに到達したら消滅 =====
-		if (dist2 <= coreR_ * coreR_) {
+		// ===== コア到達 → ライフ or シールド処理（必ず消滅） =====
+		float coreHit = coreR_ + kEnemyRadius; // 見た目と一致させる
+		if (dist2 <= coreHit * coreHit) {
 			e.active = false;
 			if (shield_ > 0) {
-				// シールドがあれば消費してライフは減らさない
 				shield_--;
 			} else {
 				life_--;
@@ -363,15 +410,11 @@ void GameScene::UpdateEnemies(float dt) {
 				continue;
 			float sx = s.pos.x - e.pos.x;
 			float sz = s.pos.z - e.pos.z;
-			float r = kShotRadius + kEnemyRadius;
+			float r = s.radius + kEnemyRadius;
 			if (sx * sx + sz * sz <= r * r) {
-				// 弾と相打ち
 				s.active = false;
 				e.active = false;
-
-				// スコア（弾撃破は倍率関係なし）
-				score_ += 100;
-				// コンボは維持しない（パドル反射の時だけ伸ばす）
+				score_ += 100; // 弾撃破
 				break;
 			}
 		}
@@ -392,35 +435,31 @@ void GameScene::UpdateEnemies(float dt) {
 				enemyAngle = NormalizeAngle(enemyAngle);
 
 				bool inAngle = false;
-				if (startAngle <= endAngle) {
+				if (startAngle <= endAngle)
 					inAngle = (enemyAngle >= startAngle && enemyAngle <= endAngle);
-				} else {
+				else
 					inAngle = (enemyAngle >= startAngle || enemyAngle <= endAngle);
-				}
 
-				float dist = std::sqrt(dx * dx + dz * dz);
 				float inner = ringR_ - ringThickness_ * 0.5f;
 				float outer = ringR_ + ringThickness_ * 0.5f;
 				return (inAngle && dist >= inner && dist <= outer);
 			};
 
 			bool hit = hitByPaddle(paddle_.angle);
-			if (!hit && doublePaddle_) {
+			if (!hit && doublePaddle_)
 				hit = hitByPaddle(paddle_.angle + PI);
-			}
 
 			if (hit) {
 				e.active = false;
-
-				// 連続反射コンボ
+				// コンボと倍率
 				paddleCombo_++;
 				comboTimer_ = comboTimeout_;
-				scoreMul_ = 1.0f + 0.2f * float(paddleCombo_); // 20%ずつ上昇
-				score_ += int(std::round(50.0f * scoreMul_));  // 反射スコア×倍率
+				scoreMul_ = 1.0f + 0.2f * float(paddleCombo_);
+				score_ += int(std::round(50.0f * scoreMul_));
 			}
 		}
 
-		// Transform更新
+		// Transform 更新
 		if (e.active && e.wt) {
 			e.wt->translation_ = e.pos;
 			WorldTransformUpdate(*e.wt);
@@ -436,11 +475,11 @@ void GameScene::UpdateEnemies(float dt) {
 	}
 }
 
-
 // ==================== 描画 ====================
 void GameScene::DrawRingAndPaddle() {
 	if (!modelBlockRing_ && !modelBlockPaddle_)
 		return;
+
 	for (auto& up : ringSegWT_)
 		modelBlockRing_->Draw(*up, camera_);
 	for (auto& up : paddleSegWT_)
@@ -449,7 +488,10 @@ void GameScene::DrawRingAndPaddle() {
 		for (auto& up : paddleSegWT2_)
 			modelBlockPaddle_->Draw(*up, camera_);
 	}
-	modelBase_->Draw(*coreWT_, camera_);
+
+	// コア見た目
+	if (modelBase_ && coreWT_)
+		modelBase_->Draw(*coreWT_, camera_);
 }
 
 void GameScene::DrawShots() {
@@ -474,7 +516,6 @@ void GameScene::DrawEnemies() {
 
 // ==================== 強化・進化の適用 ====================
 void GameScene::ApplyProgression() {
-	// しきい値は仮。必要なら好きな値に調整してOK
 	// パドルLv（長さ+2° & CD-10%/Lv）
 	int newLv = (score_ >= 2000) ? 3 : (score_ >= 1000) ? 2 : (score_ >= 500) ? 1 : 0;
 	if (newLv != paddleLevel_) {
@@ -482,19 +523,28 @@ void GameScene::ApplyProgression() {
 		RecomputePaddleHalfWidth();
 	}
 
-	// 二重パドル（上下レーン）
+	// 二重パドル
 	doublePaddle_ = (score_ >= 1500);
-
 	// 吸引進化
 	attractActive_ = (score_ >= 2500);
 
-	// コア拡大 / 減速帯
+	// コア拡大 / 減速帯（当たりは coreR_ + kEnemyRadius で最終消滅を保証）
 	coreR_ = (score_ >= 1200) ? 2.6f : 2.0f;
 	slowActive_ = (score_ >= 1400);
 
+	// リング半径（成長）
+	float newRingR = ringRBase_;
+	if (score_ >= 800)
+		newRingR += 0.5f;
+	if (score_ >= 1200)
+		newRingR += 0.5f; // 合計 +1.0
+	if (score_ >= 2000)
+		newRingR += 0.5f; // 合計 +1.5
+	if (std::abs(newRingR - ringR_) > 1e-4f) {
+		ringR_ = newRingR;
+	}
+
 	// ライフ回復・シールド付与（1回ずつ）
-	// スコア到達時に一度きりの付与。簡易的に「閾値を超えてたら常に満たす」では
-	// 何度も加算されるので、到達済みフラグで防ぐのが本格的だが、ここでは単純化：
 	static bool lifeUpDone = false;
 	static bool shieldDone = false;
 	if (!lifeUpDone && score_ >= 800) {
@@ -562,6 +612,9 @@ void GameScene::UpdateTurret(float dt) {
 	s.wt = std::make_unique<WorldTransform>();
 	s.wt->Initialize();
 	s.wt->translation_ = s.pos;
-	s.wt->scale_ = {kShotScale, kShotScale, kShotScale};
+	s.wt->scale_ = {kShotVisualScale, kShotVisualScale, kShotVisualScale};
 	WorldTransformUpdate(*s.wt);
+
+	// 当たり半径
+	s.radius = kShotVisualScale * kShotCollisionFromVisual;
 }
