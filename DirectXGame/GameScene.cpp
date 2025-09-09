@@ -22,7 +22,7 @@ void GameScene::Initialize() {
 	modelBase_ = Model::CreateFromOBJ("base"); // 既存のブロック（未使用）
 	modelBlockRing_ = Model::CreateFromOBJ("circle");
 	modelBlockPaddle_ = Model::CreateFromOBJ("paddle");
-	modelShot_ = Model::CreateFromOBJ("attack_effect");
+	modelShot_ = Model::CreateFromOBJ("PlayerBullet");
 	modelEnemy_ = Model::CreateFromOBJ("meteorite");
 	modelSkydome_ = Model::CreateFromOBJ("universedome");
 
@@ -244,7 +244,7 @@ void GameScene::SpawnShot() {
 	s.wt = std::make_unique<WorldTransform>();
 	s.wt->Initialize();
 	s.wt->translation_ = s.pos;
-	s.wt->scale_ = {kShotScale, kShotScale, kShotScale}; // 既存サイズを尊重
+	s.wt->scale_ = {kShotScale-1.0f, kShotScale-1.0f, kShotScale-1.0f}; // 既存サイズを尊重
 	WorldTransformUpdate(*s.wt);
 }
 
