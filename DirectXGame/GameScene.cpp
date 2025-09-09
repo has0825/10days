@@ -7,6 +7,7 @@
 #include <string>
 #include <KamataEngine.h>
 
+
 using namespace KamataEngine;
 
 // ランダム補助
@@ -147,12 +148,6 @@ void GameScene::Update() {
 		}
 	}
 
-	if (life_ <= 0 && !bgmStoppedOnGameOver_ && bgmVoice_ != 0u) {
-		auto* audio = Audio::GetInstance();
-		audio->StopWave(bgmVoice_); // ← bgmVoice_ を渡す
-		bgmStoppedOnGameOver_ = true;
-		// bgmVoice_ = 0u; // これは StopWave が終わってから
-	}
 
 	// 更新
 	UpdateRingAndPaddle(dt);
@@ -182,7 +177,11 @@ void GameScene::Draw() {
 	hud_.DrawSkill(skill_);
 	Sprite::PostDraw();
 
+
+
 }
+
+
 
 // ==================== 円環 ====================
 void GameScene::UpdateRingAndPaddle(float /*dt*/) {
@@ -375,7 +374,13 @@ void GameScene::UpdateEnemies(float dt) {
 				// シールドがあれば消費してライフは減らさない
 				shield_--;
 			} else {
+				
 				life_--;
+
+				if (life_ <= 0) {
+					StopBGMOnGameOver(); // 安全に停止
+				}
+
 			}
 			continue;
 		}
@@ -587,4 +592,23 @@ void GameScene::UpdateTurret(float dt) {
 	s.wt->translation_ = s.pos;
 	s.wt->scale_ = {kShotScale, kShotScale, kShotScale};
 	WorldTransformUpdate(*s.wt);
+}
+
+void GameScene::StopBGMOnGameOver() {
+
+	if (bgmStoppedOnGameOver_)
+		return; // 二重停止防止
+
+	auto* audio = Audio::GetInstance();
+	if (bgmVoice_ != 0) {
+		try {
+			audio->StopWave(bgmVoice_); // Audio 内部で nullptr チェックしていればさらに安全
+		} catch (...) {
+			// 念のため例外は無視
+		}
+		bgmVoice_ = 0; // 無効化
+	}
+
+	bgmStoppedOnGameOver_ = true;
+
 }

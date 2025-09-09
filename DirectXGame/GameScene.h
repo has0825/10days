@@ -17,7 +17,7 @@ public:
 
 	bool IsGameOver() const { return life_ <= 0; }
 
-
+	void StopBGMOnGameOver();
 
 private:
 	// ============ リソース ============
@@ -129,6 +129,9 @@ private:
 
 	// 自動砲台（コア進化）
 	void UpdateTurret(float dt);
+
+
+	
 
 	// 天球
 	Model* modelSkydome_ = nullptr;

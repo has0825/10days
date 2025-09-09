@@ -31,6 +31,15 @@ void TitleScene::Initialize() {
 	fade_->Initialize();
 	fade_->Start(Fade::Status::FadeIn, 0.6f); // 0.6秒でフェードイン
 	step_ = Step::FadeIn;
+
+	// Audio のインスタンス取得
+	auto* audio = Audio::GetInstance();
+
+	// BGM 読み込み（WAV形式）
+	bgmHandle_ = audio->LoadWave("./BGM/Title.wav");
+
+	// ループ再生 (volume=0.5)
+	bgmVoice_ = audio->PlayWave(bgmHandle_, true, 0.5f);
 }
 
 void TitleScene::Update() {
@@ -59,7 +68,12 @@ void TitleScene::Update() {
 			if (fade_) {
 				fade_->Start(Fade::Status::FadeOut, 0.5f); // 0.5秒でフェードアウト
 			}
+
+			// BGM 停止
 			step_ = Step::FadeOut;
+			auto* audio = Audio::GetInstance();
+			audio->StopWave(bgmVoice_); // ← bgmVoice_ を渡す
+			bgmStoppedOnGameOver_ = true;
 		}
 		break;
 

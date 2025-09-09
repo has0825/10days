@@ -28,4 +28,9 @@ private:
 	std::unique_ptr<WorldTransform> wt_;
 
 	std::unique_ptr<Fade> fade_;
+
+	// ▼ BGM用
+	uint32_t bgmHandle_ = 0u;  // 読み込んだBGMデータ
+	uint32_t bgmVoice_ = 0u;  // 再生中のハンドル
+	bool bgmStoppedOnGameOver_ = false;
 };
