@@ -5,6 +5,7 @@
 #include <limits>
 #include <numbers>
 #include <string>
+#include <KamataEngine.h>
 
 using namespace KamataEngine;
 
@@ -25,6 +26,7 @@ void GameScene::Initialize() {
 	modelShot_ = Model::CreateFromOBJ("PlayerBullet");
 	modelEnemy_ = Model::CreateFromOBJ("meteorite");
 	modelSkydome_ = Model::CreateFromOBJ("universedome");
+
 
 	// HUD
 	hud_.Initialize("Font.png");
@@ -72,6 +74,19 @@ void GameScene::Initialize() {
 	// 天球
 	skydome_ = new Skydome();
 	skydome_->Initialize(modelSkydome_, &camera_);
+
+
+	// Audio のインスタンス取得
+	auto* audio = Audio::GetInstance();
+
+	// BGM 読み込み（WAV形式）
+	bgmHandle_ = audio->LoadWave("./BGM/EVOLUTION.wav");
+
+	// ループ再生 (volume=0.5)
+	bgmVoice_ = audio->PlayWave(bgmHandle_, true, 0.5f);
+	
+
+
 }
 
 void GameScene::Update() {
@@ -132,6 +147,13 @@ void GameScene::Update() {
 		}
 	}
 
+	if (life_ <= 0 && !bgmStoppedOnGameOver_ && bgmVoice_ != 0u) {
+		auto* audio = Audio::GetInstance();
+		audio->StopWave(bgmVoice_); // ← bgmVoice_ を渡す
+		bgmStoppedOnGameOver_ = true;
+		// bgmVoice_ = 0u; // これは StopWave が終わってから
+	}
+
 	// 更新
 	UpdateRingAndPaddle(dt);
 	UpdateShots(dt);
@@ -159,6 +181,7 @@ void GameScene::Draw() {
 	hud_.DrawLife(life_);
 	hud_.DrawSkill(skill_);
 	Sprite::PostDraw();
+
 }
 
 // ==================== 円環 ====================

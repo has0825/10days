@@ -17,6 +17,8 @@ public:
 
 	bool IsGameOver() const { return life_ <= 0; }
 
+
+
 private:
 	// ============ リソース ============
 	Camera camera_;
@@ -136,4 +138,11 @@ private:
 	static inline const float kShotScale = 1.6f;
 	static inline const float kShotRadius = 1.6f;
 	static inline const float kEnemyRadius = 1.5f;
+
+
+	// ▼ BGM用
+	uint32_t bgmHandle_ = 0u;  // 読み込んだBGMデータ
+	uint32_t bgmVoice_ = 0u;  // 再生中のハンドル
+	bool bgmStoppedOnGameOver_ = false;
+
 };
