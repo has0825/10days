@@ -18,15 +18,9 @@ public:
 	int GetScore() const { return score_; }
 	bool IsGameOver() const { return life_ <= 0; }
 
-
-	// ▼ BGM用
-	uint32_t bgmHandle_ = 0u;  // 読み込んだBGMデータ
-	uint32_t bgmVoice_ = 0u;  // 再生中のハンドル
-	bool bgmStoppedOnGameOver_ = false;
-	void StopBGMOnGameOver();
 private:
 	// ============ リソース ============
-	Camera* cameraPtr_ = nullptr;       // ★ Skydome が参照するのでポインタでも持つ
+	Camera* cameraPtr_ = nullptr;       // Skydome が参照するのでポインタでも持つ
 	Camera camera_;                     // 実体
 	Model* modelBase_ = nullptr;        // コア見た目用
 	Model* modelBlockRing_ = nullptr;   // リング用
@@ -82,17 +76,23 @@ private:
 	float shotCooldownNow_ = 0.0f;
 
 	// ============ 弾 ============
-	// 見た目と当たりをリンクさせるための基準
 	static inline const float kShotVisualScale = 0.5f;         // 見た目スケール
 	static inline const float kShotCollisionFromVisual = 0.5f; // 当たり半径 = VisualScale * 係数
 	static inline const float kEnemyRadius = 1.5f;             // 敵の当たり半径
+	static inline const float kPlayerShotSpeed = 10.0f;        // プレイヤー弾速（共有）
 
 	struct Shot {
 		bool active = false;
 		Vector3 pos{};
 		Vector3 vel{};
-		float radius = 0.0f; // 弾個別の当たり半径（見た目から算出）
+		float radius = 0.0f; // 当たり半径（見た目から算出）
 		std::unique_ptr<WorldTransform> wt;
+
+		// ★ホーミング用（固定砲台の弾だけ true）
+		bool homing = false;                      // ホーミングするか
+		float speed = 0.0f;                       // m/s（一定）
+		float homingTurnRate = ToRadians(540.0f); // 旋回角速度（rad/s）
+
 		Shot() = default;
 		Shot(const Shot&) = delete;
 		Shot& operator=(const Shot&) = delete;
@@ -119,16 +119,26 @@ private:
 	bool slowActive_ = false; // 減速帯オン/オフ
 	float slowBand_ = 1.6f;   // コア半径からの幅
 
-	// ★“毎秒ベース”の減速＆滞留防止
-	float slowStrengthPerSec_ = 0.50f; // 1秒あたり50%減速（0.3〜0.7で調整推奨）
+	// “毎秒ベース”の減速＆滞留防止
+	float slowStrengthPerSec_ = 0.50f; // 1秒あたり50%減速
 	float minInwardAccel_ = 1.2f;      // コアへ向かう最小加速[m/s^2]
 	float minInwardSpeed_ = 0.6f;      // コア帯での最低接近速度[m/s]
 
-	// 進化：固定砲台
+	// 進化：固定砲台（スコアで解禁）
 	bool turretActive_ = false;
 	float turretInterval_ = 0.8f;
 	float turretTimer_ = 0.0f;
 	float turretShotSpeed_ = 11.0f; // m/s
+
+	// ============ スキル固定砲台（timer==60で出現） ============
+	struct SkillCannon {
+		bool active = false;
+		float interval = 0.6f; // 発射間隔
+		float timer = 0.0f;
+		// 見た目（HUDアイコン）
+		KamataEngine::Sprite* sprite = nullptr;
+	} skillCannon_;
+	uint32_t texSkillCannon_ = 0u;
 
 	// ============ 天球 ============
 	Skydome* skydome_ = nullptr;
@@ -152,27 +162,25 @@ private:
 	// 自動砲台（コア進化）
 	void UpdateTurret(float dt);
 
+	// スキル砲台
+	void SpawnSkillCannon(); // timer==60 で生成
+	void UpdateSkillCannon(float dt);
+	void DrawSkillCannon();
+
+	// 近傍探索
+	bool FindNearestEnemy(const Vector3& from, Vector3& outPos) const;
+
 	// ====== リング帯の“毎秒ベース”減速 ======
-	float ringSlowStrengthPerSec_ = 0.70f; // 1秒あたり12%減速（0.08〜0.18推奨）
-	float ringSlowBandScale_ = 0.35f;      // リング厚の±35%だけ緩く減速
+	float ringSlowStrengthPerSec_ = 0.70f; // 1秒あたりの減速率
+	float ringSlowBandScale_ = 0.35f;      // リング厚の±35%を緩く減速
 
 	// リング基本半径（成長の基点）
 	float ringRBase_ = 8.0f;
 
-	///
-	///== == == == == == == == == == 難易度スケーリング == == == == == == == == == ==
-	///目安：
-	/// 開始直後は 1 体/秒
-	/// 20 秒後：+1 体/秒
-	/// スコア 2000：さらに +1 体/秒
-	/// 早めにカオスにしたい → enemySpawnRateGrowthPerSec_ を 0.08〜0.12 に上げる
-	/// スコア連動を強めたい → enemySpawnRatePerScore_ を 0.001〜0.002 へ
-	/// PC が重くなるなら → enemySpawnRateMax_ を 6〜8 に下げる
-
 	// ============ 敵出現スケーリング ============
-	float enemySpawnBaseRate_ = 1.0f;          // 初期の毎秒スポーン数（1.0 = 1秒に1体）
-	float enemySpawnRateGrowthPerSec_ = 0.05f; // 時間(秒)ごとの増分。例: 20秒で +1.0/秒
-	float enemySpawnRatePerScore_ = 0.0005f;   // スコアによる増分。スコア2000で +1.0/秒
-	float enemySpawnRateMax_ = 10.0f;          // 上限（暴走防止）
-	float enemySpawnAcc_ = 0.0f;               // 出現の蓄積（小数を貯めて1体ずつ吐き出す）
+	float enemySpawnBaseRate_ = 1.0f;          // 初期の毎秒スポーン数
+	float enemySpawnRateGrowthPerSec_ = 0.05f; // 時間(秒)ごとの増分
+	float enemySpawnRatePerScore_ = 0.0005f;   // スコアによる増分
+	float enemySpawnRateMax_ = 10.0f;          // 上限
+	float enemySpawnAcc_ = 0.0f;               // 蓄積
 };
