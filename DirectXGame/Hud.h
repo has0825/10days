@@ -17,6 +17,10 @@ public:
 	void DrawLife(int life);
 	void DrawSkill(int /*skill*/);
 
+	// ★Skill ラベルの位置・サイズを公開（HUD横配置用）
+	const KamataEngine::Vector2& GetSkillLabelPos() const { return posSkill_; }
+	const KamataEngine::Vector2& GetSkillLabelSize() const { return sizeSkill_; }
+
 private:
 	// ===== テクスチャとレイアウト =====
 	uint32_t texHandle_ = 0u;

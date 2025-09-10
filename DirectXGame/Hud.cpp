@@ -48,19 +48,18 @@ void Hud::Initialize(const std::string& textureFile) {
 	EnsureDigits(digitsScore_, 7);
 
 	// ===== Lifeアイコンの準備 =====
-	// Life.png を読み込む（プロジェクトの Resources に配置しておく）
 	texLifeIcon_ = TextureManager::Load("Life.png");
 
-	// アイコンサイズは「Lifeラベル高さの 90%」で正方形にする
+	// アイコンサイズは「Lifeラベル高さの 90%」で正方形
 	float iconH = sizeLife_.y * kLifeIconScale;
 	float iconW = iconH;
 	sizeLifeIcon_ = {iconW, iconH};
 
-	// アイコンの基準位置（Lifeラベルの右横・垂直中央合わせ）
+	// アイコン基準位置（Lifeラベルの右横・垂直中央）
 	float y = posLife_.y + (sizeLife_.y - iconH) * 0.5f;
 	posLifeIconsBase_ = {posLife_.x + sizeLife_.x + kLifeLeftMargin, y};
 
-	// 3つ分のスプライトを生成
+	// 3つ分のスプライト生成
 	for (auto& sp : sprLifeIcons_) {
 		sp = Sprite::Create(texLifeIcon_, posLifeIconsBase_);
 		sp->SetAnchorPoint({0.0f, 0.0f}); // 左上

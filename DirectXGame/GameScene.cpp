@@ -11,13 +11,32 @@ using namespace KamataEngine;
 // ランダム補助
 static float RandomRange(float min, float max) { return min + (max - min) * (float(rand()) / float(RAND_MAX)); }
 
+// 近傍の敵を探す（from から最も近い active 敵）
+bool GameScene::FindNearestEnemy(const Vector3& from, Vector3& outPos) const {
+	float bestD2 = (std::numeric_limits<float>::max)();
+	bool found = false;
+	for (auto& e : enemies_) {
+		if (!e.active)
+			continue;
+		float dx = e.pos.x - from.x;
+		float dz = e.pos.z - from.z;
+		float d2 = dx * dx + dz * dz;
+		if (d2 < bestD2) {
+			bestD2 = d2;
+			outPos = e.pos;
+			found = true;
+		}
+	}
+	return found;
+}
+
 void GameScene::Initialize() {
 	// カメラ（真上俯瞰）
 	camera_.Initialize();
 	camera_.translation_ = {0.0f, 40.0f, 0.0f};
 	camera_.rotation_.x = ToRadians(90.0f);
 	camera_.UpdateMatrix();
-	cameraPtr_ = &camera_; // ★ Skydome に渡す用
+	cameraPtr_ = &camera_; // Skydome に渡す用
 
 	// モデル
 	modelBase_ = Model::CreateFromOBJ("base");          // コア見た目
@@ -75,15 +94,8 @@ void GameScene::Initialize() {
 	skydome_ = new Skydome();
 	skydome_->Initialize(modelSkydome_, cameraPtr_);
 
-	// Audio のインスタンス取得
-	auto* audio = Audio::GetInstance();
-
-	// BGM 読み込み（WAV形式）
-	bgmHandle_ = audio->LoadWave("./BGM/EVOLUTION.wav");
-
-	// ループ再生 (volume=0.5)
-	bgmVoice_ = audio->PlayWave(bgmHandle_, true, 0.5f);
-
+	// スキル砲台テクスチャ（出現時にスプライト生成）
+	texSkillCannon_ = TextureManager::Load("SkillCannon.png");
 }
 
 void GameScene::Update() {
@@ -100,7 +112,7 @@ void GameScene::Update() {
 		timer_++;
 	}
 
-	// 強化・進化の段階をスコアで自動適用
+	// 強化・進化の段階をスコアで自動適用（※強化時にライフ回復あり）
 	ApplyProgression();
 
 	// クールダウン減少
@@ -117,7 +129,7 @@ void GameScene::Update() {
 	}
 	paddle_.angle = WrapAngle(paddle_.angle);
 
-	// 発射（SPACE + クールダウン）
+	// 発射（SPACE + クールダウン）…プレイヤー弾は直進のみ
 	if (Input::GetInstance()->TriggerKey(DIK_SPACE) && shotCooldownNow_ <= 0.0f) {
 		SpawnShot();
 		float cdMul = 1.0f - 0.1f * float(std::clamp(paddleLevel_, 0, 3));
@@ -130,12 +142,7 @@ void GameScene::Update() {
 	// ---- 動的スポーン：時間＆スコアで毎秒出現数を増やす ----
 	float spawnRate = enemySpawnBaseRate_ + enemySpawnRateGrowthPerSec_ * static_cast<float>(timer_) // 経過秒
 	                  + enemySpawnRatePerScore_ * static_cast<float>(score_);                        // スコア
-
-	// 上限でクランプ
-	if (spawnRate > enemySpawnRateMax_)
-		spawnRate = enemySpawnRateMax_;
-	if (spawnRate < 0.0f)
-		spawnRate = 0.0f;
+	spawnRate = std::clamp(spawnRate, 0.0f, enemySpawnRateMax_);
 
 	// 期待値を蓄積して、1.0 を超えるたびに 1体スポーン
 	enemySpawnAcc_ += spawnRate * dt;
@@ -156,8 +163,14 @@ void GameScene::Update() {
 
 	// 更新
 	UpdateRingAndPaddle(dt);
-	UpdateShots(dt);
+	UpdateShots(dt); // ★ホーミング制御
 	UpdateEnemies(dt);
+
+	// ===== スキル砲台（timer==60で出現 → 自動射撃） =====
+	if (!skillCannon_.active && timer_ >= 60) {
+		SpawnSkillCannon();
+	}
+	UpdateSkillCannon(dt);
 
 	camera_.UpdateMatrix();
 }
@@ -176,10 +189,15 @@ void GameScene::Draw() {
 
 	// === HUD ===
 	Sprite::PreDraw(dxCommon->GetCommandList());
+
+	// スキル砲台アイコン（Skill の“横”に表示）
+	DrawSkillCannon();
+
 	hud_.DrawTimer(timer_);
 	hud_.DrawScore(score_);
 	hud_.DrawLife(life_);
 	hud_.DrawSkill(skill_);
+
 	Sprite::PostDraw();
 }
 
@@ -241,7 +259,7 @@ void GameScene::UpdateRingAndPaddle(float /*dt*/) {
 	WorldTransformUpdate(cwt);
 }
 
-// ==================== 弾 ====================
+// ==================== 弾（プレイヤー発射・直進） ====================
 void GameScene::SpawnShot() {
 	shots_.emplace_back();
 	Shot& s = shots_.back();
@@ -260,8 +278,8 @@ void GameScene::SpawnShot() {
 		dir.z /= len;
 	}
 
-	float speed = 10.0f;
-	s.vel = {dir.x * speed * (1.0f / 60.0f), 0.0f, dir.z * speed * (1.0f / 60.0f)};
+	s.speed = kPlayerShotSpeed; // 一定速度
+	s.vel = {dir.x * s.speed * (1.0f / 60.0f), 0.0f, dir.z * s.speed * (1.0f / 60.0f)};
 
 	s.wt = std::make_unique<WorldTransform>();
 	s.wt->Initialize();
@@ -271,20 +289,69 @@ void GameScene::SpawnShot() {
 
 	// 当たり半径は見た目から算出して保持
 	s.radius = kShotVisualScale * kShotCollisionFromVisual;
+
+	// プレイヤー弾はホーミングなし
+	s.homing = false;
 }
 
-void GameScene::UpdateShots(float /*dt*/) {
+// ==================== 弾の更新（ホーミング制御を含む） ====================
+void GameScene::UpdateShots(float dt) {
 	for (auto& s : shots_) {
 		if (!s.active)
 			continue;
+
+		// ★ホーミング：固定砲台の弾のみ
+		if (s.homing) {
+			Vector3 target;
+			if (FindNearestEnemy(s.pos, target)) {
+				// 現在の進行方向（xz平面）
+				float curAx = s.vel.x;
+				float curAz = s.vel.z;
+				float curLen = std::sqrt(curAx * curAx + curAz * curAz);
+				if (curLen > 1e-6f) {
+					curAx /= curLen;
+					curAz /= curLen;
+				}
+
+				// 目標方向
+				float dx = target.x - s.pos.x;
+				float dz = target.z - s.pos.z;
+				float desLen = std::sqrt(dx * dx + dz * dz);
+				if (desLen > 1e-6f) {
+					dx /= desLen;
+					dz /= desLen;
+				}
+
+				// 角度差（-π..π）
+				float cross = curAx * dz - curAz * dx;
+				float dot = curAx * dx + curAz * dz;
+				float angle = std::atan2(cross, dot); // 左が正
+
+				// 1フレームの最大旋回角
+				float maxTurn = s.homingTurnRate * dt;
+				float turn = std::clamp(angle, -maxTurn, maxTurn);
+
+				// 現在角度に turn を加算
+				float curAngle = std::atan2(curAz, curAx);
+				float newAngle = curAngle + turn;
+				float ndx = std::cos(newAngle);
+				float ndz = std::sin(newAngle);
+
+				// 速度を一定維持（m/s → 1/60 ステップ）
+				s.vel.x = ndx * s.speed * (1.0f / 60.0f);
+				s.vel.z = ndz * s.speed * (1.0f / 60.0f);
+			}
+			// ターゲットが居ないときは直進維持
+		}
+
+		// 位置更新
 		s.pos += s.vel;
 
+		// コアとの当たり（弾半径を加味）…境界ビリビリを避けるため < に
 		float dx = s.pos.x - ringC_.x;
 		float dz = s.pos.z - ringC_.z;
-
-		// コアとの当たり（弾半径を加味）
 		float coreHitR = coreR_ + s.radius;
-		if ((dx * dx + dz * dz) <= coreHitR * coreHitR) {
+		if ((dx * dx + dz * dz) < coreHitR * coreHitR) {
 			s.active = false;
 			continue;
 		}
@@ -294,6 +361,8 @@ void GameScene::UpdateShots(float /*dt*/) {
 			WorldTransformUpdate(*s.wt);
 		}
 	}
+
+	// inactive を削除
 	if (!shots_.empty()) {
 		shots_.erase(std::remove_if(shots_.begin(), shots_.end(), [](const Shot& s) { return !s.active; }), shots_.end());
 	}
@@ -364,7 +433,7 @@ void GameScene::UpdateEnemies(float dt) {
 		float dist2 = dx * dx + dz * dz;
 		float dist = std::sqrt(dist2);
 
-		// ---- リング帯の“毎秒ベース”減速（弱め・範囲を狭める） ----
+		// リング帯の“毎秒ベース”減速
 		float inner = ringR_ - ringThickness_ * 0.5f;
 		float outer = ringR_ + ringThickness_ * 0.5f;
 		float mid = (inner + outer) * 0.5f;
@@ -377,7 +446,7 @@ void GameScene::UpdateEnemies(float dt) {
 			e.vel.z *= k;
 		}
 
-		// ---- 拠点減速帯（毎秒ベース）＋最小侵入加速で詰まり解消 ----
+		// 拠点減速帯（毎秒ベース）＋最小侵入加速で詰まり解消
 		if (slowActive_) {
 			float slowR = (coreR_ + slowBand_);
 			if (dist <= slowR && dist > coreR_) {
@@ -402,7 +471,7 @@ void GameScene::UpdateEnemies(float dt) {
 			}
 		}
 
-		// ===== コア到達 → ライフ or シールド処理（必ず消滅） =====
+		// コア到達 → ライフ or シールド処理（必ず消滅）
 		float coreHit = coreR_ + kEnemyRadius; // 見た目と一致させる
 		if (dist2 <= coreHit * coreHit) {
 			e.active = false;
@@ -410,14 +479,11 @@ void GameScene::UpdateEnemies(float dt) {
 				shield_--;
 			} else {
 				life_--;
-				if (life_ <= 0) {
-					StopBGMOnGameOver(); // 安全に停止
-				}
 			}
 			continue;
 		}
 
-		// ===== 弾との衝突判定 =====
+		// 弾との衝突判定
 		for (auto& s : shots_) {
 			if (!s.active)
 				continue;
@@ -432,7 +498,7 @@ void GameScene::UpdateEnemies(float dt) {
 			}
 		}
 
-		// ===== パドルとの衝突判定 =====
+		// パドルとの衝突判定
 		if (e.active) {
 			auto hitByPaddle = [&](float baseAngle) -> bool {
 				float enemyAngle = std::atan2(e.pos.z - ringC_.z, e.pos.x - ringC_.x);
@@ -479,12 +545,9 @@ void GameScene::UpdateEnemies(float dt) {
 		}
 	}
 
-	// inactive の敵／弾を削除
+	// inactive を削除
 	if (!enemies_.empty()) {
 		enemies_.erase(std::remove_if(enemies_.begin(), enemies_.end(), [](const Enemy& e) { return !e.active; }), enemies_.end());
-	}
-	if (!shots_.empty()) {
-		shots_.erase(std::remove_if(shots_.begin(), shots_.end(), [](const Shot& s) { return !s.active; }), shots_.end());
 	}
 }
 
@@ -529,16 +592,13 @@ void GameScene::DrawEnemies() {
 
 // ==================== 強化・進化の適用 ====================
 void GameScene::ApplyProgression() {
-	// ===== 現在値をベースに「次の状態」を計算 =====
+	// 次の状態を計算
 	int newLv = (score_ >= 2000) ? 3 : (score_ >= 1000) ? 2 : (score_ >= 500) ? 1 : 0;
-
 	bool newDoublePaddle = (score_ >= 1500);
-	bool newAttractActive = (score_ >= 2500);
-
+	bool newAttract = (score_ >= 2500);
 	float newCoreR = (score_ >= 1200) ? 2.6f : 2.0f;
-	bool newSlowActive = (score_ >= 1400);
-
-	bool newTurretActive = (score_ >= 3000);
+	bool newSlow = (score_ >= 1400);
+	bool newTurret = (score_ >= 3000);
 
 	float newRingR = ringRBase_;
 	if (score_ >= 800)
@@ -548,49 +608,45 @@ void GameScene::ApplyProgression() {
 	if (score_ >= 2000)
 		newRingR += 0.5f; // 合計 +1.5
 
-	// ===== 「強化が起きたか」を検出（上方向の変化のみ） =====
+	// 強化発生判定（上方向の変化のみ）
 	bool strengthened = false;
 	if (newLv > paddleLevel_)
 		strengthened = true;
 	if (!doublePaddle_ && newDoublePaddle)
 		strengthened = true;
-	if (!attractActive_ && newAttractActive)
+	if (!attractActive_ && newAttract)
 		strengthened = true;
-	if (!slowActive_ && newSlowActive)
+	if (!slowActive_ && newSlow)
 		strengthened = true;
-	if (!turretActive_ && newTurretActive)
+	if (!turretActive_ && newTurret)
 		strengthened = true;
 	if (newCoreR > coreR_)
 		strengthened = true;
 	if (newRingR > ringR_)
 		strengthened = true;
 
-	// ===== 実際に状態を反映 =====
+	// 状態反映
 	if (newLv != paddleLevel_) {
 		paddleLevel_ = newLv;
 		RecomputePaddleHalfWidth();
 	}
 	doublePaddle_ = newDoublePaddle;
-	attractActive_ = newAttractActive;
-	slowActive_ = newSlowActive;
-	turretActive_ = newTurretActive;
+	attractActive_ = newAttract;
+	slowActive_ = newSlow;
+	turretActive_ = newTurret;
 
-	if (std::abs(newRingR - ringR_) > 1e-4f) {
+	if (std::abs(newRingR - ringR_) > 1e-4f)
 		ringR_ = newRingR;
-	}
 	coreR_ = newCoreR;
 
-	// ===== ライフ回復（ここが今回の追加仕様） =====
-	// 強化が発生したタイミングで、ライフが3未満なら +1（上限3）
+	// 強化時にライフ回復（上限3、3のときは回復しない）
 	if (strengthened && life_ < 3) {
 		life_ = (std::min)(life_ + 1, 3);
 	}
-	// 念のため常に上限にクランプ
-	if (life_ > 3) {
-		life_ = 3;
-	}
+	if (life_ > 3)
+		life_ = 3; // 念のためクランプ
 
-	// ===== シールド付与（従来仕様のまま1回だけ） =====
+	// シールド付与（従来：一度だけ）
 	static bool shieldDone = false;
 	if (!shieldDone && score_ >= 1600) {
 		shield_ = (std::min)(shield_ + 1, 3);
@@ -614,38 +670,32 @@ void GameScene::UpdateTurret(float dt) {
 		return;
 	turretTimer_ = 0.0f;
 
-	// 最も近い敵を探す
-	float bestD2 = (std::numeric_limits<float>::max)();
+	// 初期目標（拠点中心から最も近い敵）
 	Vector3 target{};
-	bool found = false;
-	for (auto& e : enemies_) {
-		if (!e.active)
-			continue;
-		float dx = e.pos.x - ringC_.x;
-		float dz = e.pos.z - ringC_.z;
-		float d2 = dx * dx + dz * dz;
-		if (d2 < bestD2) {
-			bestD2 = d2;
-			target = e.pos;
-			found = true;
-		}
-	}
-	if (!found)
+	if (!FindNearestEnemy(ringC_, target))
 		return;
 
-	// 中心から目標へ向けて弾を撃つ（既存ショットの仕組みを流用）
+	// 中心から目標へ向けて弾を撃つ（★ホーミングON）
 	shots_.emplace_back();
 	Shot& s = shots_.back();
 	s.active = true;
-	s.pos = ringC_; // コア中心から
 
-	Vector3 dir = {target.x - s.pos.x, 0.0f, target.z - s.pos.z};
+	// まず目標方向
+	Vector3 dir = {target.x - ringC_.x, 0.0f, target.z - ringC_.z};
 	float len = std::sqrt(dir.x * dir.x + dir.z * dir.z);
 	if (len > 1e-5f) {
 		dir.x /= len;
 		dir.z /= len;
+	} else {
+		dir = {1, 0, 0};
 	}
-	s.vel = {dir.x * turretShotSpeed_ * (1.0f / 60.0f), 0.0f, dir.z * turretShotSpeed_ * (1.0f / 60.0f)};
+
+	// ★生成位置：コア表面の外側へオフセット（即死回避）
+	float spawnR = coreR_ + kShotVisualScale * kShotCollisionFromVisual + 0.02f;
+	s.pos = {ringC_.x + dir.x * spawnR, 0.0f, ringC_.z + dir.z * spawnR};
+
+	s.speed = turretShotSpeed_;
+	s.vel = {dir.x * s.speed * (1.0f / 60.0f), 0.0f, dir.z * s.speed * (1.0f / 60.0f)};
 
 	s.wt = std::make_unique<WorldTransform>();
 	s.wt->Initialize();
@@ -653,25 +703,92 @@ void GameScene::UpdateTurret(float dt) {
 	s.wt->scale_ = {kShotVisualScale, kShotVisualScale, kShotVisualScale};
 	WorldTransformUpdate(*s.wt);
 
-	// 当たり半径
 	s.radius = kShotVisualScale * kShotCollisionFromVisual;
+
+	// ホーミング設定
+	s.homing = true;
+	s.homingTurnRate = ToRadians(540.0f);
 }
 
-void GameScene::StopBGMOnGameOver() {
+// ==================== スキル砲台（timer==60で出現、拠点中心から発射・ホーミング） ====================
+void GameScene::SpawnSkillCannon() {
+	skillCannon_.active = true;
+	skillCannon_.timer = 0.0f;
 
-	if (bgmStoppedOnGameOver_)
-		return; // 二重停止防止
+	// 見た目（HUD用アイコン）
+	skillCannon_.sprite = Sprite::Create(texSkillCannon_, {0.0f, 0.0f});
+	if (skillCannon_.sprite) {
+		skillCannon_.sprite->SetAnchorPoint({0.0f, 0.0f});
+	}
+}
 
-	auto* audio = Audio::GetInstance();
-	if (bgmVoice_ != 0) {
-		try {
-			audio->StopWave(bgmVoice_); // Audio 内部で nullptr チェックしていればさらに安全
-		} catch (...) {
-			// 念のため例外は無視
-		}
-		bgmVoice_ = 0; // 無効化
+void GameScene::UpdateSkillCannon(float dt) {
+	if (!skillCannon_.active)
+		return;
+
+	// 発射間隔管理
+	skillCannon_.timer += dt;
+	if (skillCannon_.timer < skillCannon_.interval)
+		return;
+	skillCannon_.timer = 0.0f;
+
+	// 初期目標：拠点中心から最も近い敵
+	Vector3 target{};
+	if (!FindNearestEnemy(ringC_, target))
+		return;
+
+	// 発射（★ホーミングON、速度はプレイヤーと同じ）
+	shots_.emplace_back();
+	Shot& s = shots_.back();
+	s.active = true;
+
+	// まず目標方向
+	Vector3 dir = {target.x - ringC_.x, 0.0f, target.z - ringC_.z};
+	float len = std::sqrt(dir.x * dir.x + dir.z * dir.z);
+	if (len > 1e-5f) {
+		dir.x /= len;
+		dir.z /= len;
+	} else {
+		dir = {1, 0, 0};
 	}
 
-	bgmStoppedOnGameOver_ = true;
+	// ★生成位置：コア表面の外側へオフセット（即死回避）
+	float spawnR = coreR_ + kShotVisualScale * kShotCollisionFromVisual + 0.02f;
+	s.pos = {ringC_.x + dir.x * spawnR, 0.0f, ringC_.z + dir.z * spawnR};
 
+	s.speed = kPlayerShotSpeed;
+	s.vel = {dir.x * s.speed * (1.0f / 60.0f), 0.0f, dir.z * s.speed * (1.0f / 60.0f)};
+
+	s.wt = std::make_unique<WorldTransform>();
+	s.wt->Initialize();
+	s.wt->translation_ = s.pos;
+	s.wt->scale_ = {kShotVisualScale, kShotVisualScale, kShotVisualScale};
+	WorldTransformUpdate(*s.wt);
+
+	s.radius = kShotVisualScale * kShotCollisionFromVisual;
+
+	// ホーミング設定
+	s.homing = true;
+	s.homingTurnRate = ToRadians(540.0f);
+}
+
+void GameScene::DrawSkillCannon() {
+	if (!skillCannon_.active)
+		return;
+	if (!skillCannon_.sprite)
+		return;
+
+	// Skill ラベルの位置・サイズを取得して、右横＆垂直中央にアイコンを配置
+	const Vector2& skillPos = hud_.GetSkillLabelPos();
+	const Vector2& skillSize = hud_.GetSkillLabelSize();
+
+	const float iconH = skillSize.y * 0.90f;
+	const float iconW = iconH;  // 正方形
+	const float margin = 10.0f; // ラベルとアイコンの隙間
+
+	const Vector2 iconPos = {skillPos.x + skillSize.x + margin, skillPos.y + (skillSize.y - iconH) * 0.5f};
+
+	skillCannon_.sprite->SetSize({iconW, iconH});
+	skillCannon_.sprite->SetPosition(iconPos);
+	skillCannon_.sprite->Draw();
 }
