@@ -181,7 +181,7 @@ private:
 	bool FindNearestEnemy(const Vector3& from, Vector3& outPos) const;
 
 	// ====== リング帯の“毎秒ベース”減速 ======
-	float ringSlowStrengthPerSec_ = 0.70f; // 1秒あたりの減速率
+	float ringSlowStrengthPerSec_ = 0.10f; // 1秒あたりの減速率
 	float ringSlowBandScale_ = 0.35f;      // リング厚の±35%を緩く減速
 
 	// リング基本半径（成長の基点）
