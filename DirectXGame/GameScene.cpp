@@ -96,7 +96,7 @@ void GameScene::Initialize() {
 	auto* audio = Audio::GetInstance();
 
 	// BGM 読み込み（WAV形式）
-	bgmHandle_ = audio->LoadWave("./BGM/Title.wav");
+	bgmHandle_ = audio->LoadWave("./BGM/EVOLUTION.wav");
 
 	// ループ再生 (volume=0.5)
 	bgmVoice_ = audio->PlayWave(bgmHandle_, true, 0.5f);
@@ -509,8 +509,11 @@ void GameScene::UpdateEnemies(float dt) {
 			if (shield_ > 0) {
 				shield_--;
 			} else {
-				life_--;
 				
+				life_--;
+				if (life_ <= 0) {
+					StopBGMOnGameOver(); // 安全に停止
+				}
 			}
 			continue;
 		}
