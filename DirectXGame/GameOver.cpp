@@ -34,6 +34,16 @@ void GameOverScene::Initialize() {
 	fade_->Start(Fade::Status::FadeIn, 0.6f);
 
 	step_ = Step::FadeIn;
+
+
+	// Audio のインスタンス取得
+	auto* audio = Audio::GetInstance();
+
+	// BGM 読み込み（WAV形式）
+	bgmHandle_ = audio->LoadWave("./BGM/EVOLUTION.wav");
+
+	// ループ再生 (volume=0.5)
+	bgmVoice_ = audio->PlayWave(bgmHandle_, true, 0.5f);
 }
 
 void GameOverScene::Update() {
@@ -53,6 +63,17 @@ void GameOverScene::Update() {
 		if (input->TriggerKey(DIK_SPACE)) {
 			fade_->Start(Fade::Status::FadeOut, 0.5f);
 			step_ = Step::FadeOut;
+
+			// BGM停止（安全版）
+			if (!bgmStoppedOnGameOver_ && bgmVoice_ != 0) {
+				try {
+					Audio::GetInstance()->StopWave(bgmVoice_);
+				} catch (...) {
+					// 無視
+				}
+				bgmVoice_ = 0;
+				bgmStoppedOnGameOver_ = true;
+			}
 		}
 		break;
 	case Step::FadeOut:

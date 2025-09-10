@@ -38,4 +38,9 @@ private:
 
 	// ★ ポインタではなく値で持つ（これがエラーの主因）
 	Hud hud_;
+
+	// ▼ BGM用
+	uint32_t bgmHandle_ = 0u;  // 読み込んだBGMデータ
+	uint32_t bgmVoice_ = 0u;  // 再生中のハンドル
+	bool bgmStoppedOnGameOver_ = false;
 };
