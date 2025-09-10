@@ -90,17 +90,13 @@ void GameScene::Initialize() {
 	shield_ = 0;
 	timerAcc_ = 0.0f;
 
-
 	//----------BGM----------///
 	// Audio のインスタンス取得
 	auto* audio = Audio::GetInstance();
-
 	// BGM 読み込み（WAV形式）
 	bgmHandle_ = audio->LoadWave("./BGM/EVOLUTION.wav");
-
 	// ループ再生 (volume=0.5)
 	bgmVoice_ = audio->PlayWave(bgmHandle_, true, 0.5f);
-
 
 	// 天球
 	skydome_ = new Skydome();
@@ -108,6 +104,9 @@ void GameScene::Initialize() {
 
 	// スキル砲台テクスチャ（出現時にスプライト生成）
 	texSkillCannon_ = TextureManager::Load("SkillCannon.png");
+
+	// 生成フラグ
+	skillCannonSpawned_ = false;
 }
 
 void GameScene::Update() {
@@ -178,9 +177,13 @@ void GameScene::Update() {
 	UpdateShots(dt); // ★ホーミング制御
 	UpdateEnemies(dt);
 
-	// ===== スキル砲台（timer==60で出現 → 自動射撃） =====
-	if (!skillCannon_.active && timer_ >= 60) {
-		SpawnSkillCannon();
+	// ===== スキル砲台（timer==60の瞬間に1回だけ出現し、同フレームで初弾を発射） =====
+	if (!skillCannonSpawned_ && timer_ == 60) {
+		SpawnSkillCannon(); // スコア横にアイコン表示
+		skillCannonSpawned_ = true;
+
+		FireSkillCannonShot();     // ★同フレームで初弾発射
+		skillCannon_.timer = 0.0f; // 次弾は interval 後
 	}
 	UpdateSkillCannon(dt);
 
@@ -202,7 +205,7 @@ void GameScene::Draw() {
 	// === HUD ===
 	Sprite::PreDraw(dxCommon->GetCommandList());
 
-	// スキル砲台アイコン（Skill の“横”に表示）
+	// スキル砲台アイコン（スコアの“横”に表示）
 	DrawSkillCannon();
 
 	hud_.DrawTimer(timer_);
@@ -214,22 +217,19 @@ void GameScene::Draw() {
 }
 
 void GameScene::StopBGMOnGameOver() {
-
 	if (bgmStoppedOnGameOver_)
 		return; // 二重停止防止
 
 	auto* audio = Audio::GetInstance();
 	if (bgmVoice_ != 0) {
 		try {
-			audio->StopWave(bgmVoice_); // Audio 内部で nullptr チェックしていればさらに安全
+			audio->StopWave(bgmVoice_);
 		} catch (...) {
 			// 念のため例外は無視
 		}
 		bgmVoice_ = 0; // 無効化
 	}
-
 	bgmStoppedOnGameOver_ = true;
-
 }
 
 // ==================== 円環 ====================
@@ -509,7 +509,6 @@ void GameScene::UpdateEnemies(float dt) {
 			if (shield_ > 0) {
 				shield_--;
 			} else {
-				
 				life_--;
 				if (life_ <= 0) {
 					StopBGMOnGameOver(); // 安全に停止
@@ -700,6 +699,10 @@ void GameScene::UpdateTurret(float dt) {
 	if (!turretActive_)
 		return;
 
+	// ★60秒前は撃たない（表示タイミングと同期用）
+	if (timer_ < 60)
+		return;
+
 	turretTimer_ += dt;
 	if (turretTimer_ < turretInterval_)
 		return;
@@ -729,7 +732,10 @@ void GameScene::UpdateTurret(float dt) {
 	float spawnR = coreR_ + kShotVisualScale * kShotCollisionFromVisual + 0.02f;
 	s.pos = {ringC_.x + dir.x * spawnR, 0.0f, ringC_.z + dir.z * spawnR};
 
-	s.speed = turretShotSpeed_;
+	// ▼▼ ここが変更：30秒ごとの倍率を適用 ▼▼
+	s.speed = turretShotSpeed_ * GetTimeSpeedMul();
+	// ▲▲ ここまで変更 ▲▲
+
 	s.vel = {dir.x * s.speed * (1.0f / 60.0f), 0.0f, dir.z * s.speed * (1.0f / 60.0f)};
 
 	s.wt = std::make_unique<WorldTransform>();
@@ -757,27 +763,18 @@ void GameScene::SpawnSkillCannon() {
 	}
 }
 
-void GameScene::UpdateSkillCannon(float dt) {
-	if (!skillCannon_.active)
-		return;
-
-	// 発射間隔管理
-	skillCannon_.timer += dt;
-	if (skillCannon_.timer < skillCannon_.interval)
-		return;
-	skillCannon_.timer = 0.0f;
-
+void GameScene::FireSkillCannonShot() {
 	// 初期目標：拠点中心から最も近い敵
 	Vector3 target{};
 	if (!FindNearestEnemy(ringC_, target))
 		return;
 
-	// 発射（★ホーミングON、速度はプレイヤーと同じ）
+	// 発射（ホーミングON、速度はプレイヤー基準だが時間倍率を適用）
 	shots_.emplace_back();
 	Shot& s = shots_.back();
 	s.active = true;
 
-	// まず目標方向
+	// 目標方向
 	Vector3 dir = {target.x - ringC_.x, 0.0f, target.z - ringC_.z};
 	float len = std::sqrt(dir.x * dir.x + dir.z * dir.z);
 	if (len > 1e-5f) {
@@ -787,11 +784,14 @@ void GameScene::UpdateSkillCannon(float dt) {
 		dir = {1, 0, 0};
 	}
 
-	// ★生成位置：コア表面の外側へオフセット（即死回避）
+	// コア表面の外側へオフセット（即死回避）
 	float spawnR = coreR_ + kShotVisualScale * kShotCollisionFromVisual + 0.02f;
 	s.pos = {ringC_.x + dir.x * spawnR, 0.0f, ringC_.z + dir.z * spawnR};
 
-	s.speed = kPlayerShotSpeed;
+	// ▼▼ ここが変更：30秒ごとの倍率を適用 ▼▼
+	s.speed = kPlayerShotSpeed * GetTimeSpeedMul();
+	// ▲▲ ここまで変更 ▲▲
+
 	s.vel = {dir.x * s.speed * (1.0f / 60.0f), 0.0f, dir.z * s.speed * (1.0f / 60.0f)};
 
 	s.wt = std::make_unique<WorldTransform>();
@@ -807,21 +807,37 @@ void GameScene::UpdateSkillCannon(float dt) {
 	s.homingTurnRate = ToRadians(540.0f);
 }
 
+void GameScene::UpdateSkillCannon(float dt) {
+	if (!skillCannon_.active)
+		return;
+
+	// 発射間隔管理
+	skillCannon_.timer += dt;
+	if (skillCannon_.timer < skillCannon_.interval)
+		return;
+	skillCannon_.timer = 0.0f;
+
+	FireSkillCannonShot();
+}
+
 void GameScene::DrawSkillCannon() {
 	if (!skillCannon_.active)
 		return;
 	if (!skillCannon_.sprite)
 		return;
 
-	// Skill ラベルの位置・サイズを取得して、右横＆垂直中央にアイコンを配置
+	// ★Skill ラベルの位置・サイズを使う（Scoreではなく）
 	const Vector2& skillPos = hud_.GetSkillLabelPos();
 	const Vector2& skillSize = hud_.GetSkillLabelSize();
 
-	const float iconH = skillSize.y * 0.90f;
-	const float iconW = iconH;  // 正方形
-	const float margin = 10.0f; // ラベルとアイコンの隙間
+	const float iconH = skillSize.y * 0.90f; // アイコン高さ（Skillラベル高さの90%）
+	const float iconW = iconH;               // 正方形
+	const float margin = 10.0f;              // ラベルとアイコンの隙間
 
-	const Vector2 iconPos = {skillPos.x + skillSize.x + margin, skillPos.y + (skillSize.y - iconH) * 0.5f};
+	const Vector2 iconPos = {
+	    skillPos.x + skillSize.x + margin,        // Skillの右横
+	    skillPos.y + (skillSize.y - iconH) * 0.5f // 縦中央揃え
+	};
 
 	skillCannon_.sprite->SetSize({iconW, iconH});
 	skillCannon_.sprite->SetPosition(iconPos);

@@ -18,9 +18,8 @@ public:
 	int GetScore() const { return score_; }
 	bool IsGameOver() const { return life_ <= 0; }
 
-
 	// ▼ BGM用
-	uint32_t bgmHandle_ = 0u;  // 読み込んだBGMデータ
+	uint32_t bgmHandle_ = 0u; // 読み込んだBGMデータ
 	uint32_t bgmVoice_ = 0u;  // 再生中のハンドル
 	bool bgmStoppedOnGameOver_ = false;
 	void StopBGMOnGameOver();
@@ -147,6 +146,9 @@ private:
 	} skillCannon_;
 	uint32_t texSkillCannon_ = 0u;
 
+	// ★60秒の瞬間だけ一度きり生成するためのフラグ
+	bool skillCannonSpawned_ = false;
+
 	// ============ 天球 ============
 	Skydome* skydome_ = nullptr;
 
@@ -170,9 +172,10 @@ private:
 	void UpdateTurret(float dt);
 
 	// スキル砲台
-	void SpawnSkillCannon(); // timer==60 で生成
+	void SpawnSkillCannon(); // timer==60 で生成（この瞬間に初弾も撃つ）
 	void UpdateSkillCannon(float dt);
 	void DrawSkillCannon();
+	void FireSkillCannonShot(); // スキル砲台の弾を1発撃つ
 
 	// 近傍探索
 	bool FindNearestEnemy(const Vector3& from, Vector3& outPos) const;
@@ -191,7 +194,16 @@ private:
 	float enemySpawnRateMax_ = 10.0f;          // 上限
 	float enemySpawnAcc_ = 0.0f;               // 蓄積
 
+	// ---------- ここから追加：30秒ごとに弾速UP ----------
+	float bulletSpeedupPerStep_ = 2.00f; // 30秒ごとに +15%
+	float bulletSpeedMaxMul_ = 1000.0f;     // 上限(=3倍)
 
-	
-
+	float GetTimeSpeedMul() const {
+		int steps = (timer_ >= 0) ? (timer_ / 30) : 0; // 0,30,60,...秒で+1
+		float mul = 1.0f + bulletSpeedupPerStep_ * static_cast<float>(steps);
+		if (mul > bulletSpeedMaxMul_)
+			mul = bulletSpeedMaxMul_;
+		return mul;
+	}
+	// ---------- 追加ここまで ----------
 };

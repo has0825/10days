@@ -28,7 +28,8 @@ void Hud::Initialize(const std::string& textureFile) {
 	sizeLife_ = {84.0f * s, static_cast<float>(kLabelH) * s};
 
 	// --- Score (右上) ---
-	posScore_ = {900.0f, 0.0f};
+	// ※ユーザー提供の値に合わせて 800,0 に配置
+	posScore_ = {800.0f, 0.0f};
 	sprScore_ = Sprite::Create(texHandle_, posScore_);
 	sprScore_->SetTextureRect({288.0f, 0.0f}, {136.0f, static_cast<float>(kLabelH)});
 	sprScore_->SetSize({136.0f * s, static_cast<float>(kLabelH) * s});
@@ -158,3 +159,4 @@ void Hud::DrawSkill(int /*skill*/) {
 	if (sprSkill_)
 		sprSkill_->Draw();
 }
+
