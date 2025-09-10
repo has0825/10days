@@ -90,6 +90,18 @@ void GameScene::Initialize() {
 	shield_ = 0;
 	timerAcc_ = 0.0f;
 
+
+	//----------BGM----------///
+	// Audio のインスタンス取得
+	auto* audio = Audio::GetInstance();
+
+	// BGM 読み込み（WAV形式）
+	bgmHandle_ = audio->LoadWave("./BGM/EVOLUTION.wav");
+
+	// ループ再生 (volume=0.5)
+	bgmVoice_ = audio->PlayWave(bgmHandle_, true, 0.5f);
+
+
 	// 天球
 	skydome_ = new Skydome();
 	skydome_->Initialize(modelSkydome_, cameraPtr_);
@@ -199,6 +211,25 @@ void GameScene::Draw() {
 	hud_.DrawSkill(skill_);
 
 	Sprite::PostDraw();
+}
+
+void GameScene::StopBGMOnGameOver() {
+
+	if (bgmStoppedOnGameOver_)
+		return; // 二重停止防止
+
+	auto* audio = Audio::GetInstance();
+	if (bgmVoice_ != 0) {
+		try {
+			audio->StopWave(bgmVoice_); // Audio 内部で nullptr チェックしていればさらに安全
+		} catch (...) {
+			// 念のため例外は無視
+		}
+		bgmVoice_ = 0; // 無効化
+	}
+
+	bgmStoppedOnGameOver_ = true;
+
 }
 
 // ==================== 円環 ====================
@@ -478,7 +509,11 @@ void GameScene::UpdateEnemies(float dt) {
 			if (shield_ > 0) {
 				shield_--;
 			} else {
+				
 				life_--;
+				if (life_ <= 0) {
+					StopBGMOnGameOver(); // 安全に停止
+				}
 			}
 			continue;
 		}

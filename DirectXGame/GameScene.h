@@ -18,6 +18,13 @@ public:
 	int GetScore() const { return score_; }
 	bool IsGameOver() const { return life_ <= 0; }
 
+
+	// ▼ BGM用
+	uint32_t bgmHandle_ = 0u;  // 読み込んだBGMデータ
+	uint32_t bgmVoice_ = 0u;  // 再生中のハンドル
+	bool bgmStoppedOnGameOver_ = false;
+	void StopBGMOnGameOver();
+
 private:
 	// ============ リソース ============
 	Camera* cameraPtr_ = nullptr;       // Skydome が参照するのでポインタでも持つ
@@ -183,4 +190,8 @@ private:
 	float enemySpawnRatePerScore_ = 0.0005f;   // スコアによる増分
 	float enemySpawnRateMax_ = 10.0f;          // 上限
 	float enemySpawnAcc_ = 0.0f;               // 蓄積
+
+
+	
+
 };

@@ -34,6 +34,7 @@ void TitleScene::Initialize() {
 	fade_->Start(Fade::Status::FadeIn, 0.6f); // 0.6秒でフェードイン
 	step_ = Step::FadeIn;
 
+	//----------BGM----------///
 	// Audio のインスタンス取得
 	auto* audio = Audio::GetInstance();
 
