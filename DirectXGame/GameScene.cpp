@@ -213,6 +213,9 @@ void GameScene::Draw() {
 	Sprite::PostDraw();
 }
 
+void GameScene::StopBGMOnGameOver() {
+}
+
 // ==================== 円環 ====================
 void GameScene::UpdateRingAndPaddle(float /*dt*/) {
 	// リング
