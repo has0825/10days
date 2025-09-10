@@ -63,6 +63,17 @@ void GameOverScene::Update() {
 		if (input->TriggerKey(DIK_SPACE)) {
 			fade_->Start(Fade::Status::FadeOut, 0.5f);
 			step_ = Step::FadeOut;
+
+			// BGM停止（安全版）
+			if (!bgmStoppedOnGameOver_ && bgmVoice_ != 0) {
+				try {
+					Audio::GetInstance()->StopWave(bgmVoice_);
+				} catch (...) {
+					// 無視
+				}
+				bgmVoice_ = 0;
+				bgmStoppedOnGameOver_ = true;
+			}
 		}
 		break;
 	case Step::FadeOut:
