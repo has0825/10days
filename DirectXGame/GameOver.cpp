@@ -36,7 +36,7 @@ void GameOverScene::Initialize() {
 	auto* audio = Audio::GetInstance();
 
 	// BGM 読み込み（WAV形式）
-	bgmHandle_ = audio->LoadWave("./BGM/GameOver.wav");
+	bgmHandle_ = audio->LoadWave("./BGM/EVOLUTION.wav");
 
 	// ループ再生 (volume=0.5)
 	bgmVoice_ = audio->PlayWave(bgmHandle_, true, 0.5f);
