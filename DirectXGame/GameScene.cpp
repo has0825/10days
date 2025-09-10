@@ -516,23 +516,17 @@ void GameScene::DrawEnemies() {
 
 // ==================== 強化・進化の適用 ====================
 void GameScene::ApplyProgression() {
-	// パドルLv（長さ+2° & CD-10%/Lv）
+	// ===== 現在値をベースに「次の状態」を計算 =====
 	int newLv = (score_ >= 2000) ? 3 : (score_ >= 1000) ? 2 : (score_ >= 500) ? 1 : 0;
-	if (newLv != paddleLevel_) {
-		paddleLevel_ = newLv;
-		RecomputePaddleHalfWidth();
-	}
 
-	// 二重パドル
-	doublePaddle_ = (score_ >= 1500);
-	// 吸引進化
-	attractActive_ = (score_ >= 2500);
+	bool newDoublePaddle = (score_ >= 1500);
+	bool newAttractActive = (score_ >= 2500);
 
-	// コア拡大 / 減速帯（当たりは coreR_ + kEnemyRadius で最終消滅を保証）
-	coreR_ = (score_ >= 1200) ? 2.6f : 2.0f;
-	slowActive_ = (score_ >= 1400);
+	float newCoreR = (score_ >= 1200) ? 2.6f : 2.0f;
+	bool newSlowActive = (score_ >= 1400);
 
-	// リング半径（成長）
+	bool newTurretActive = (score_ >= 3000);
+
 	float newRingR = ringRBase_;
 	if (score_ >= 800)
 		newRingR += 0.5f;
@@ -540,24 +534,55 @@ void GameScene::ApplyProgression() {
 		newRingR += 0.5f; // 合計 +1.0
 	if (score_ >= 2000)
 		newRingR += 0.5f; // 合計 +1.5
+
+	// ===== 「強化が起きたか」を検出（上方向の変化のみ） =====
+	bool strengthened = false;
+	if (newLv > paddleLevel_)
+		strengthened = true;
+	if (!doublePaddle_ && newDoublePaddle)
+		strengthened = true;
+	if (!attractActive_ && newAttractActive)
+		strengthened = true;
+	if (!slowActive_ && newSlowActive)
+		strengthened = true;
+	if (!turretActive_ && newTurretActive)
+		strengthened = true;
+	if (newCoreR > coreR_)
+		strengthened = true;
+	if (newRingR > ringR_)
+		strengthened = true;
+
+	// ===== 実際に状態を反映 =====
+	if (newLv != paddleLevel_) {
+		paddleLevel_ = newLv;
+		RecomputePaddleHalfWidth();
+	}
+	doublePaddle_ = newDoublePaddle;
+	attractActive_ = newAttractActive;
+	slowActive_ = newSlowActive;
+	turretActive_ = newTurretActive;
+
 	if (std::abs(newRingR - ringR_) > 1e-4f) {
 		ringR_ = newRingR;
 	}
+	coreR_ = newCoreR;
 
-	// ライフ回復・シールド付与（1回ずつ）
-	static bool lifeUpDone = false;
-	static bool shieldDone = false;
-	if (!lifeUpDone && score_ >= 800) {
-		life_ = (std::min)(life_ + 1, 9);
-		lifeUpDone = true;
+	// ===== ライフ回復（ここが今回の追加仕様） =====
+	// 強化が発生したタイミングで、ライフが3未満なら +1（上限3）
+	if (strengthened && life_ < 3) {
+		life_ = (std::min)(life_ + 1, 3);
 	}
+	// 念のため常に上限にクランプ
+	if (life_ > 3) {
+		life_ = 3;
+	}
+
+	// ===== シールド付与（従来仕様のまま1回だけ） =====
+	static bool shieldDone = false;
 	if (!shieldDone && score_ >= 1600) {
 		shield_ = (std::min)(shield_ + 1, 3);
 		shieldDone = true;
 	}
-
-	// 固定砲台（進化）
-	turretActive_ = (score_ >= 3000);
 }
 
 void GameScene::RecomputePaddleHalfWidth() {

@@ -13,8 +13,8 @@ public:
 	void DrawTimer(int seconds);
 	void DrawScore(int score);
 
-	// ラベルのみ描画（現状のまま）
-	void DrawLife(int /*life*/);
+	// ラベル＋アイコン描画
+	void DrawLife(int life);
 	void DrawSkill(int /*skill*/);
 
 private:
@@ -44,9 +44,7 @@ private:
 	std::vector<KamataEngine::Sprite*> digitsScore_;
 
 	// ===== Font.png の割り付け =====
-	// 上段ラベルの元サイズ
 	static inline const int kLabelH = 53;
-	// 下段数字のタイル（0〜9・「・」・「×」）
 	static inline const int kDigitsY = 53;    // 下段の開始Y
 	static inline const int kDigitW = 48;     // 1桁原画像幅
 	static inline const int kDigitH = 59;     // 1桁原画像高さ
@@ -56,8 +54,17 @@ private:
 	static inline const float kLabelScale = 1.2f;
 	static inline const float kDigitScale = 1.0f;
 
-	// ラベルと数字の隙間(px)
+	// ラベルと数字/アイコンの隙間(px)
 	static inline const float kNumLeftMargin = 8.0f;
+	static inline const float kLifeLeftMargin = 10.0f;
+
+	// ===== Life アイコン =====
+	uint32_t texLifeIcon_ = 0u;                                  // Life.png
+	std::array<KamataEngine::Sprite*, 3> sprLifeIcons_{nullptr}; // 最大3つ
+	KamataEngine::Vector2 posLifeIconsBase_{0.0f, 0.0f};         // 1個目の基準位置
+	KamataEngine::Vector2 sizeLifeIcon_{0.0f, 0.0f};             // 実サイズ（スケール後）
+	static inline const float kLifeIconScale = 0.9f;             // ラベル高さに対する比率
+	static inline const float kLifeIconSpacing = 6.0f;           // アイコン間隔
 
 	// 内部ヘルパ
 	void EnsureDigits(std::vector<KamataEngine::Sprite*>& pool, size_t count);

@@ -43,9 +43,29 @@ void Hud::Initialize(const std::string& textureFile) {
 	sprSkill_->SetAnchorPoint({0.0f, 0.0f});
 	sizeSkill_ = {100.0f * s, static_cast<float>(kLabelH) * s};
 
-	// 事前確保
+	// 事前確保（数字）
 	EnsureDigits(digitsTimer_, 5);
 	EnsureDigits(digitsScore_, 7);
+
+	// ===== Lifeアイコンの準備 =====
+	// Life.png を読み込む（プロジェクトの Resources に配置しておく）
+	texLifeIcon_ = TextureManager::Load("Life.png");
+
+	// アイコンサイズは「Lifeラベル高さの 90%」で正方形にする
+	float iconH = sizeLife_.y * kLifeIconScale;
+	float iconW = iconH;
+	sizeLifeIcon_ = {iconW, iconH};
+
+	// アイコンの基準位置（Lifeラベルの右横・垂直中央合わせ）
+	float y = posLife_.y + (sizeLife_.y - iconH) * 0.5f;
+	posLifeIconsBase_ = {posLife_.x + sizeLife_.x + kLifeLeftMargin, y};
+
+	// 3つ分のスプライトを生成
+	for (auto& sp : sprLifeIcons_) {
+		sp = Sprite::Create(texLifeIcon_, posLifeIconsBase_);
+		sp->SetAnchorPoint({0.0f, 0.0f}); // 左上
+		sp->SetSize(sizeLifeIcon_);
+	}
 }
 
 void Hud::EnsureDigits(std::vector<Sprite*>& pool, size_t count) {
@@ -112,9 +132,27 @@ void Hud::DrawScore(int score) {
 	DrawString(s, anchor, digitsScore_);
 }
 
-void Hud::DrawLife(int /*life*/) {
+void Hud::DrawLife(int life) {
+	// ラベル本体
 	if (sprLife_)
 		sprLife_->Draw();
+
+	// 表示するアイコン数（0〜3にクランプ）
+	int n = life;
+	if (n < 0)
+		n = 0;
+	if (n > 3)
+		n = 3;
+
+	// アイコンを左から n 個だけ描画
+	for (int i = 0; i < n; ++i) {
+		if (!sprLifeIcons_[i])
+			continue;
+		Vector2 pos = {posLifeIconsBase_.x + static_cast<float>(i) * (sizeLifeIcon_.x + kLifeIconSpacing), posLifeIconsBase_.y};
+		sprLifeIcons_[i]->SetPosition(pos);
+		sprLifeIcons_[i]->SetSize(sizeLifeIcon_);
+		sprLifeIcons_[i]->Draw();
+	}
 }
 
 void Hud::DrawSkill(int /*skill*/) {
