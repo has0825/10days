@@ -628,3 +628,22 @@ void GameScene::UpdateTurret(float dt) {
 	// 当たり半径
 	s.radius = kShotVisualScale * kShotCollisionFromVisual;
 }
+
+void GameScene::StopBGMOnGameOver() {
+
+	if (bgmStoppedOnGameOver_)
+		return; // 二重停止防止
+
+	auto* audio = Audio::GetInstance();
+	if (bgmVoice_ != 0) {
+		try {
+			audio->StopWave(bgmVoice_); // Audio 内部で nullptr チェックしていればさらに安全
+		} catch (...) {
+			// 念のため例外は無視
+		}
+		bgmVoice_ = 0; // 無効化
+	}
+
+	bgmStoppedOnGameOver_ = true;
+
+}
