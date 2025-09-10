@@ -69,6 +69,13 @@ void TitleScene::Update() {
 				fade_->Start(Fade::Status::FadeOut, 0.5f); // 0.5秒でフェードアウト
 			}
 			step_ = Step::FadeOut;
+
+			// BGM 停止
+			step_ = Step::FadeOut;
+			auto* audio = Audio::GetInstance();
+			audio->StopWave(bgmVoice_); // ← bgmVoice_ を渡す
+			bgmStoppedOnGameOver_ = true;
+
 		}
 		break;
 
