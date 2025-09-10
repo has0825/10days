@@ -410,6 +410,9 @@ void GameScene::UpdateEnemies(float dt) {
 				shield_--;
 			} else {
 				life_--;
+				if (life_ <= 0) {
+					StopBGMOnGameOver(); // 安全に停止
+				}
 			}
 			continue;
 		}
