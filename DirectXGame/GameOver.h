@@ -1,6 +1,7 @@
 #pragma once
 #include "Fade.h"
 #include "Hud.h"
+#include "Skydome.h"
 #include <KamataEngine.h>
 #include <memory>                   // ★ unique_ptr 使うので追加
 
@@ -33,6 +34,10 @@ private:
 
 	std::unique_ptr<Fade> fade_;
 
+	//model
+	Model* modelSkydome_ = nullptr;     // 天球
+	Camera* cameraPtr_ = nullptr;       // ★ Skydome が参照するのでポインタでも持つ
+
 	// ★ 追加
 	int finalScore_ = 0;
 
@@ -43,4 +48,7 @@ private:
 	uint32_t bgmHandle_ = 0u;  // 読み込んだBGMデータ
 	uint32_t bgmVoice_ = 0u;  // 再生中のハンドル
 	bool bgmStoppedOnGameOver_ = false;
+
+	// ============ 天球 ============
+	Skydome* skydome_ = nullptr;
 };

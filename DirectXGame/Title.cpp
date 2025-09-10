@@ -14,9 +14,11 @@ void TitleScene::Initialize() {
 	camera_.translation_ = {0.0f, 0.0f, -20.0f};
 	camera_.rotation_ = {0.0f, 0.0f, 0.0f};
 	camera_.UpdateMatrix();
+	cameraPtr_ = &camera_; // ★ Skydome に渡す用
 
 	// タイトルのOBJ（titleFont フォルダ想定）
 	modelTitle_ = Model::CreateFromOBJ("Title", true);
+	modelSkydome_ = Model::CreateFromOBJ("TitleSkydome");
 
 	// ワールドトランスフォーム
 	titleWT_ = std::make_unique<WorldTransform>();
@@ -40,6 +42,9 @@ void TitleScene::Initialize() {
 
 	// ループ再生 (volume=0.5)
 	bgmVoice_ = audio->PlayWave(bgmHandle_, true, 0.5f);
+
+	skydome_ = new Skydome();
+	skydome_->Initialize(modelSkydome_, cameraPtr_);
 }
 
 void TitleScene::Update() {
@@ -52,6 +57,10 @@ void TitleScene::Update() {
 	if (fade_) {
 		fade_->Update();
 	}
+
+	// 背景
+	if (skydome_)
+		skydome_->Update();
 
 	// ステップ制御
 	switch (step_) {
@@ -95,13 +104,16 @@ void TitleScene::Update() {
 void TitleScene::Draw() {
 	// 3Dモデル描画
 	DirectXCommon* dxCommon = DirectXCommon::GetInstance();
+
+	// フェード（黒板を Sprite レイヤで上描き）
 	Model::PreDraw(dxCommon->GetCommandList());
+	if (skydome_) {
+		skydome_->Draw();
+	}
 	if (modelTitle_ && titleWT_) {
 		modelTitle_->Draw(*titleWT_, camera_);
 	}
 	Model::PostDraw();
-
-	// フェード（黒板を Sprite レイヤで上描き）
 	if (fade_) {
 		fade_->Draw();
 	}
