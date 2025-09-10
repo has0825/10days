@@ -14,9 +14,12 @@ void GameOverScene::Initialize() {
 	camera_.translation_ = {2.0f, 0.0f, -30.0f};
 	camera_.rotation_ = {0.0f, 0.0f, 0.0f};
 	camera_.UpdateMatrix();
+	cameraPtr_ = &camera_; // ★ Skydome に渡す用
+
 
 	// GameOver OBJ
 	modelGameOver_ = Model::CreateFromOBJ("GameOverFont", true);
+	modelSkydome_ = Model::CreateFromOBJ("TitleSkydome");
 
 	// Transform
 	wt_ = std::make_unique<WorldTransform>();
@@ -44,6 +47,9 @@ void GameOverScene::Initialize() {
 
 	// ループ再生 (volume=0.5)
 	bgmVoice_ = audio->PlayWave(bgmHandle_, true, 0.5f);
+
+	skydome_ = new Skydome();
+	skydome_->Initialize(modelSkydome_, cameraPtr_);
 }
 
 void GameOverScene::Update() {
@@ -51,6 +57,10 @@ void GameOverScene::Update() {
 	camera_.UpdateMatrix();
 	if (fade_)
 		fade_->Update();
+
+	// 背景
+	if (skydome_)
+		skydome_->Update();
 
 	switch (step_) {
 	case Step::FadeIn:
@@ -89,6 +99,10 @@ void GameOverScene::Update() {
 void GameOverScene::Draw() {
 	DirectXCommon* dxCommon = DirectXCommon::GetInstance();
 	Model::PreDraw(dxCommon->GetCommandList());
+
+	if (skydome_) {
+		skydome_->Draw();
+	}
 	if (modelGameOver_ && wt_) {
 		modelGameOver_->Draw(*wt_, camera_);
 	}
