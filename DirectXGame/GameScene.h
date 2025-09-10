@@ -183,4 +183,11 @@ private:
 	float enemySpawnRatePerScore_ = 0.0005f;   // スコアによる増分
 	float enemySpawnRateMax_ = 10.0f;          // 上限
 	float enemySpawnAcc_ = 0.0f;               // 蓄積
+
+
+	// ▼ BGM用
+	uint32_t bgmHandle_ = 0u;  // 読み込んだBGMデータ
+	uint32_t bgmVoice_ = 0u;  // 再生中のハンドル
+	bool bgmStoppedOnGameOver_ = false;
+
 };

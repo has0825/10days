@@ -90,6 +90,18 @@ void GameScene::Initialize() {
 	shield_ = 0;
 	timerAcc_ = 0.0f;
 
+
+	//----------BGM----------///
+	// Audio のインスタンス取得
+	auto* audio = Audio::GetInstance();
+
+	// BGM 読み込み（WAV形式）
+	bgmHandle_ = audio->LoadWave("./BGM/Title.wav");
+
+	// ループ再生 (volume=0.5)
+	bgmVoice_ = audio->PlayWave(bgmHandle_, true, 0.5f);
+
+
 	// 天球
 	skydome_ = new Skydome();
 	skydome_->Initialize(modelSkydome_, cameraPtr_);
@@ -479,6 +491,7 @@ void GameScene::UpdateEnemies(float dt) {
 				shield_--;
 			} else {
 				life_--;
+				
 			}
 			continue;
 		}
